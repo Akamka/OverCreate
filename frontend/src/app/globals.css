@@ -1,0 +1,381 @@
+/* =========================
+   Tailwind v4 import
+   ========================= */
+@import "tailwindcss";
+
+/* =========================
+   Базовая тема
+   ========================= */
+:root { color-scheme: dark; }
+html, body { height: 100%; }
+body{
+  background:#0A0A0F;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+::selection{ background:rgba(255,255,255,.14); color:#fff; }
+
+/* скроллбары */
+*{ scrollbar-color: rgba(255,255,255,.25) transparent; }
+*::-webkit-scrollbar{ width:8px; height:8px; }
+*::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.25); border-radius:999px; }
+*::-webkit-scrollbar-track{ background:transparent; }
+
+/* =========================
+   Премиальный фон (Aurora Silk)
+   ========================= */
+
+/* 1) Aurora Silk — мягкие «облака» */
+.oc-aurora{
+  position:absolute; inset:-8%;
+  background:
+    radial-gradient(60% 50% at 18% 22%, rgba(78,191,255,.16) 0, transparent 60%),
+    radial-gradient(50% 45% at 75% 28%, rgba(241,90,255,.14) 0, transparent 58%),
+    radial-gradient(55% 55% at 62% 78%, rgba(120,255,194,.12) 0, transparent 60%),
+    radial-gradient(40% 60% at 30% 70%, rgba(255,170,120,.08) 0, transparent 60%);
+  filter: blur(80px) saturate(120%);
+  transform-origin:50% 50%;
+  animation: oc-aurora-rotate 60s linear infinite;
+}
+@keyframes oc-aurora-rotate{
+  0%{transform:rotate(0deg) scale(1)}
+  50%{transform:rotate(180deg) scale(1.02)}
+  100%{transform:rotate(360deg) scale(1)}
+}
+
+/* 2) Едва заметный «шёлковый» блик */
+.oc-sheen{
+  position:absolute; inset:-20%;
+  background: repeating-linear-gradient(125deg,
+     rgba(255,255,255,.035) 0 2px, transparent 2px 10px);
+  background-size:200% 200%;
+  mix-blend-mode:overlay;
+  opacity:.28;
+  animation: oc-sheen-move 18s ease-in-out infinite alternate;
+}
+@keyframes oc-sheen-move{
+  0%{transform:translate3d(-2%,-2%,0)}
+  100%{transform:translate3d(2%,2%,0)}
+}
+
+/* 3) Тонкая инженерная сетка */
+.oc-finegrid{
+  position:absolute; inset:0;
+  background:
+    linear-gradient(transparent,transparent calc(100% - 1px), rgba(255,255,255,.09) 0),
+    linear-gradient(90deg, transparent,transparent calc(100% - 1px), rgba(255,255,255,.09) 0);
+  background-size:96px 96px, 96px 96px;
+  opacity:.10;
+}
+
+/* 4) Лёгкое зерно */
+.oc-noise{
+  position:absolute; inset:0;
+  background-image:
+    radial-gradient(circle at 25% 15%, rgba(255,255,255,.06) 0 1px, transparent 2px),
+    radial-gradient(circle at 75% 85%, rgba(255,255,255,.06) 0 1px, transparent 2px);
+  background-size:3px 3px, 4px 4px;
+  mix-blend-mode:soft-light; opacity:.22;
+}
+
+/* 5) Мягкая виньетка */
+.oc-vignette{
+  position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(140% 120% at 50% 46%, transparent 92%, rgba(0,0,0,.28) 100%);
+}
+
+/* respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .oc-aurora, .oc-sheen{ animation:none !important; }
+}
+
+/* =========================
+   Утилиты интерфейса
+   ========================= */
+.glass{
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 30px rgba(0,0,0,.35);
+}
+
+.hsnap{
+  overflow-x:auto; overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+}
+.hpanel{ scroll-snap-align:center; }
+
+.film-perf{
+  --dot: radial-gradient(circle at 50% 50%, rgba(0,0,0,.9) 0 3px, transparent 4px) center/28px 1.25rem repeat-x;
+  background: var(--dot) top left, var(--dot) bottom left;
+}
+
+.glitch-overlay{
+  position:fixed; inset:0; z-index:50; pointer-events:none;
+  background: repeating-linear-gradient(180deg,
+    rgba(255,255,255,.06) 0px, rgba(255,255,255,.06) 2px,
+    rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 4px);
+  mix-blend-mode:screen; opacity:0;
+  animation: glitch .6s ease-in-out forwards;
+}
+@keyframes glitch{
+  0%{opacity:0; transform:scale(1)}
+  20%{opacity:.8; transform:scale(1.02) translateX(-4px)}
+  45%{opacity:1; transform:scale(1.04) translateX(7px)}
+  70%{opacity:.9; transform:scale(1.01)}
+  100%{opacity:0}
+}
+
+/* =========================
+   Секции (без «полос»)
+   ========================= */
+.oc-section{
+  position:relative;
+  padding-block:96px;
+  scroll-margin-top:96px;
+}
+@media (min-width:768px){
+  .oc-section{ padding-block:120px; scroll-margin-top:110px; }
+}
+/* полностью отключаем любые растушёвки, если они когда-то появятся */
+.oc-section::before, .oc-section::after{ content:none !important; display:none !important; background:none !important; }
+
+/* =========================
+   Holographic Prism Cards
+   ========================= */
+
+/* поддержка анимируемого угла */
+@property --ang { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+
+.hcard3d{ perspective:1000px; }
+
+/*? === Holographic Prism Cards : контейнер карточки === */
+.hcard{
+  position: relative;
+  border-radius: 22px;
+  --acc1: 56 189 248;
+  --acc2: 168 85 247;
+  --mx: 50%; --my: 50%;
+  --dx: 0px; --dy: 0px;
+
+  /* было: contain: paint;  — УДАЛЕНО, иначе режет тени/блюры */
+  /* оставляем ускорители без клиппинга */
+  transform-style: preserve-3d;
+  will-change: transform;
+  isolation: isolate;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+
+  /* чтобы тени могли выходить за рамки */
+  overflow: visible;
+}
+
+/* карточка не должна клипать тени */
+.hcard{
+  position: relative;
+  border-radius: 22px;
+  --acc1: 56 189 248;
+  --acc2: 168 85 247;
+  --mx: 50%; --my: 50%;
+  --dx: 0px; --dy: 0px;
+
+  /* !!! убрали contain: paint; чтобы не резало эффекты */
+  /* contain: layout style;  — можно оставить, если нужно, но не paint */
+  transform-style: preserve-3d;
+  will-change: transform;
+  isolation: isolate;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+
+  overflow: visible;
+}
+
+/* вместо filter: drop-shadow — тень на body */
+.hcard:hover{
+  filter: none;
+}
+
+/* усилили тень на внутреннем слое */
+.hcard-body{
+  position: relative;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.045));
+  backdrop-filter: blur(12px);
+
+  /* было: box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); */
+  box-shadow:
+    0 18px 40px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.08);
+
+  overflow: hidden;
+}
+
+/* на ховере — чуть сильнее тень именно у body */
+.hcard:hover .hcard-body{
+  box-shadow:
+    0 26px 56px rgba(0,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+/* перестраховка — секции не должны скрывать тени детей */
+.oc-section{ overflow: visible; }
+
+
+/* стеклянная подложка */
+.hcard-body{
+  position:relative;
+  border-radius:inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.045));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  overflow:hidden;
+  z-index:1;
+}
+
+/* микро-гравировка */
+.hcard-engrave{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(transparent,transparent calc(100% - 1px), rgba(255,255,255,.08) 0),
+    linear-gradient(90deg, transparent,transparent calc(100% - 1px), rgba(255,255,255,.08) 0);
+  background-size:18px 18px, 18px 18px;
+  opacity:.06; z-index:1;
+}
+
+/* ===== ПЛАВНАЯ ЦВЕТНАЯ РАМКА (OKLCH) ===== */
+@supports (background: conic-gradient(in oklch, red, blue)) {
+  .hcard::before{
+    content:"";
+    position:absolute; inset:0; padding:var(--ring-w); border-radius:inherit; z-index:0;
+    background:
+      conic-gradient(in oklch from var(--ang,0deg) at 50% 50%,
+        /* много мягких промежуточных стопов по кругу */
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha)) 100%, rgb(var(--acc2) / var(--holo-alpha))   0%)  0turn,
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha))  75%, rgb(var(--acc2) / var(--holo-alpha))  25%) .16turn,
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha))  55%, rgb(var(--acc2) / var(--holo-alpha))  45%) .33turn,
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha))  30%, rgb(var(--acc2) / var(--holo-alpha))  70%)  .5turn,
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha))  55%, rgb(var(--acc2) / var(--holo-alpha))  45%) .66turn,
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha))  75%, rgb(var(--acc2) / var(--holo-alpha))  25%) .84turn,
+        color-mix(in oklch, rgb(var(--acc1) / var(--holo-alpha)) 100%, rgb(var(--acc2) / var(--holo-alpha))   0%)  1turn
+      ),
+      radial-gradient(140% 120% at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .06) 0%, rgb(var(--acc2) / .05) 40%, transparent 68%);
+    /* вырезаем центр — оставляем «кольцо» */
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;        /* стандарт */
+    -webkit-mask-composite: xor;    /* Safari */
+    filter: saturate(120%);
+    animation: holo-rotate var(--holo-speed) linear infinite;
+    transition: filter .35s ease, opacity .35s ease;
+  }
+}
+@keyframes holo-rotate{ to{ --ang: 360deg; } }
+
+/* ===== Фолбэк для старых браузеров (sRGB, но плотные стопы) ===== */
+@supports not (background: conic-gradient(in oklch, red, blue)) {
+  .hcard::before{
+    content:"";
+    position:absolute; inset:0; padding:var(--ring-w); border-radius:inherit; z-index:0;
+    background:
+      conic-gradient(from var(--ang,0deg) at 50% 50%,
+        rgb(var(--acc1) / var(--holo-alpha)) 0deg,
+        rgb(var(--acc1) / var(--holo-alpha)) 40deg,
+        rgb(var(--acc2) / var(--holo-alpha)) 120deg,
+        rgb(var(--acc2) / var(--holo-alpha)) 200deg,
+        rgb(var(--acc1) / var(--holo-alpha)) 280deg,
+        rgb(var(--acc1) / var(--holo-alpha)) 360deg
+      ),
+      radial-gradient(140% 120% at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .06) 0%, rgb(var(--acc2) / .05) 40%, transparent 68%);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude; -webkit-mask-composite: xor;
+    filter: saturate(120%);
+    animation: holo-rotate var(--holo-speed) linear infinite;
+    transition: filter .35s ease, opacity .35s ease;
+  }
+}
+
+/* мягкий «shine» */
+.hcard-shine{
+  position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:2;
+  mix-blend-mode: screen; opacity:0; transition: opacity .35s ease-out;
+  background:
+    radial-gradient(160px 110px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.18), transparent 60%),
+    radial-gradient(260px 200px at calc(var(--mx,50%) + 10%) calc(var(--my,50%) + 6%), rgba(255,255,255,.07), transparent 60%);
+}
+.hcard:hover .hcard-shine{ opacity:.14; }
+
+/* осколки с параллаксом */
+.hcard-shard{
+  position:absolute; border-radius:24px; filter: blur(18px); opacity:.75; pointer-events:none;
+  transition: opacity .2s ease-out; z-index:1;
+}
+.hcard:hover .hcard-shard{ opacity:.9; }
+.hcard-shard.a{
+  inset:auto auto 15% -10%; width:46%; height:46%;
+  background: radial-gradient(60% 60% at 40% 50%, rgb(var(--acc1) / .16), transparent 60%);
+  transform: translate3d(calc(var(--dx)*.15), calc(var(--dy)*.15), 0);
+}
+.hcard-shard.b{
+  inset:-12% -8% auto auto; width:38%; height:38%;
+  background: radial-gradient(60% 60% at 60% 50%, rgb(var(--acc2) / .14), transparent 60%);
+  transform: translate3d(calc(var(--dx)*.30), calc(var(--dy)*.30), 0);
+}
+
+/* сканлайн при ховере */
+.hcard-scan{
+  position:absolute; inset:-20% -30%; z-index:2;
+  background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,.12) 50%, transparent 100%);
+  transform: translateY(-100%); opacity:0; pointer-events:none;
+}
+.hcard:hover .hcard-scan{ animation: hc-scan 2.4s ease-in-out 1; opacity:1; }
+@keyframes hc-scan{ 0%{transform:translateY(-100%)} 100%{transform:translateY(100%)} }
+
+/* «чип» */
+.hcard-chip{
+  position:absolute; top:12px; right:12px; width:26px; height:18px; border-radius:4px; z-index:3;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.5), rgba(255,255,255,.15)),
+    linear-gradient(180deg, rgba(0,0,0,.2), rgba(255,255,255,.2));
+  border:1px solid rgba(255,255,255,.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  opacity:.9;
+}
+
+/* слои контента (деликатный параллакс) */
+.hcard-layer{ will-change: transform; transform:translate3d(0,0,0); z-index:3; }
+.hcard-ico{ --z:26px; }
+.hcard-ttl{ --z:18px; }
+.hcard-dsc{ --z:12px; }
+.hcard-cta{ --z:16px; }
+.hcard-layer{
+  transform: translate3d(
+    calc(var(--dx,0px) * .025),
+    calc(var(--dy,0px) * .025),
+    var(--z,0px)
+  );
+}
+
+/* актив-состояние (клик) */
+.hcard.hcard-pressed{
+  transition: transform .08s ease;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) scale(.995);
+}
+
+/* типографика карточки */
+.hcard-title{ font-weight:700; letter-spacing:.2px; }
+.hcard-desc{ color: rgb(212 212 216); font-size:.92rem; }
+.hcard-cta{ font-size:.88rem; text-decoration:underline; text-underline-offset:4px; opacity:.9; }
+.hcard:hover .hcard-cta{ opacity:1; }
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hcard{ transform:none !important; }
+  .hcard-layer{ transform:none !important; }
+  .hcard::before{ animation:none !important; }
+  .hcard-shine, .hcard-scan{ display:none !important; }
+}
