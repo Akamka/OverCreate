@@ -1,17 +1,23 @@
-export type Portfolio = {
-  id?: number
-  title: string
-  slug?: string
-  service_type: string
-  cover_url?: string
-  gallery?: string[]
-  client?: string
-  tags?: string
-  excerpt?: string
-  body?: string
-  is_published?: boolean
-  is_featured?: boolean
-  sort_order?: number
-  meta_title?: string
-  meta_description?: string
-}
+export type ContactSubmission = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string | null;
+  page?: string | null;
+  subject?: string | null;
+  message: string;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  ip?: string | null;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type PaginationLink = { url: string | null; label: string; active: boolean };
+export type Paginated<T> = {
+  data: T[];
+  links: PaginationLink[];
+  meta: { current_page: number; last_page: number; per_page: number; total: number };
+};

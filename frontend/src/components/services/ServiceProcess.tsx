@@ -1,83 +1,95 @@
-import type React from 'react';
-import { Sparkles, Target, FlaskConical, PenTool, Rocket } from 'lucide-react';
-import clsx from 'clsx';
-import type { RGB } from './PricingCard';
+'use client'
 
-type CSSVarKeys = '--acc1' | '--acc2' | '--ring-w' | '--holo-alpha';
-type CSSVars = React.CSSProperties & Partial<Record<CSSVarKeys, string>>;
+import { useRef, useState, type CSSProperties } from 'react'
+import clsx from 'clsx'
+import { Target, FlaskConical, Lightbulb, Cog, Rocket, type LucideIcon } from 'lucide-react'
+import type { RGB } from '@/types/ui'
 
-type Step = {
-  title: string;
-  desc: string;
-  icon: React.ReactNode;
-};
+type Step = { n: string; title: string; desc: string; Icon: LucideIcon }
 
-type Props = {
-  accentFrom: RGB;
-  accentTo: RGB;
-  title?: string;
-  steps?: Step[];
-  className?: string;
-};
+const STEPS: Step[] = [
+  { n: '01', title: 'Бриф',         desc: 'Цели, аудитория, дедлайны',                   Icon: Target },
+  { n: '02', title: 'Исследование', desc: 'Рефы, мудборды, гипотезы',                    Icon: FlaskConical },
+  { n: '03', title: 'Концепт',      desc: 'Первые варианты: статика/движ',               Icon: Lightbulb },
+  { n: '04', title: 'Производство', desc: 'Дизайн, анимация, интеграции',                Icon: Cog },
+  { n: '05', title: 'Запуск',       desc: 'Передача исходников, поддержка и улучшения',  Icon: Rocket },
+]
 
-/**
- * Секция «Процесс» — компактные .hcard-карточки шагов
- */
-export default function ServiceProcess({
-  accentFrom,
-  accentTo,
-  title = 'Как мы работаем',
-  steps,
-  className,
-}: Props) {
-  const vars: CSSVars = {
+type Props = { accentFrom: RGB; accentTo: RGB; className?: string }
+type VarKeys = '--acc1' | '--acc2' | '--p' | '--count'
+type ProcessVars = CSSProperties & Record<VarKeys, string>
+
+export default function ServiceProcess({ accentFrom, accentTo, className }: Props) {
+  const [active, setActive] = useState(0)
+  const resetTimer = useRef<number | null>(null)
+
+  // сколько держим ползунок после ухода курсора
+  const HOLD_MS = 900
+
+  const clearReset = () => {
+    if (resetTimer.current) {
+      clearTimeout(resetTimer.current)
+      resetTimer.current = null
+    }
+  }
+  const scheduleReset = () => {
+    clearReset()
+    resetTimer.current = window.setTimeout(() => {
+      setActive(0)
+      resetTimer.current = null
+    }, HOLD_MS)
+  }
+  const setActiveNow = (i: number) => {
+    clearReset()
+    setActive(i)
+  }
+
+  const p = (active / (STEPS.length - 1)) * 100
+  const vars: ProcessVars = {
     '--acc1': accentFrom.join(' '),
     '--acc2': accentTo.join(' '),
-  };
-
-  const items: Step[] =
-    steps ??
-    [
-      { title: 'Бриф', desc: 'Цели, аудитория, дедлайны', icon: <Target size={18} /> },
-      { title: 'Исследование', desc: 'Рефы, мудборды, гипотезы', icon: <FlaskConical size={18} /> },
-      { title: 'Концепт', desc: 'Первые варианты: статик/движ', icon: <PenTool size={18} /> },
-      { title: 'Производство', desc: 'Дизайн, анимация, интеграции', icon: <Sparkles size={18} /> },
-      { title: 'Запуск', desc: 'Поддержка, улучшения', icon: <Rocket size={18} /> },
-    ];
+    '--p': `${p}%`,
+    '--count': String(STEPS.length),
+  }
 
   return (
-    <section id="process" className={clsx('oc-section', className)}>
-      <div className="max-w-[1200px] mx-auto px-5 md:px-8">
-        <h2 className="text-3xl md:text-4xl font-semibold mb-8 md:mb-10">{title}</h2>
+    <section className={clsx('oc-section px-6 md:px-16 relative', className)} style={vars}>
+      <div className="max-w-[1200px] mx-auto">
+        <h2 className="text-white/90 text-2xl md:text-3xl font-semibold">Как мы работаем</h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 md:gap-6">
-          {items.map((s, i) => (
-            <div key={`${s.title}-${i}`} className="hcard group" style={vars}>
-              <div className="hcard-body p-5 md:p-6 relative min-h-[150px]">
-                <div className="hcard-engrave" />
-                <div className="hcard-shine" />
-
-                <div className="absolute right-3 top-3 opacity-70">{s.icon}</div>
-
-                <div className="relative z-10">
-                  <div className="text-sm text-white/60">0{i + 1}</div>
-                  <div className="mt-1.5 text-lg font-semibold">{s.title}</div>
-                  <div className="mt-1 text-sm text-white/70 leading-relaxed">{s.desc}</div>
+        <div className="proc-wrap relative mt-6 md:mt-8">
+          {/* Карточки */}
+          <div className="proc-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {STEPS.map((s, i) => (
+              <button
+                key={s.n}
+                type="button"
+                className="proc-card group text-left"
+                onFocus={() => setActiveNow(i)}
+                onMouseEnter={() => setActiveNow(i)}
+                onMouseLeave={scheduleReset}
+                onBlur={scheduleReset}
+              >
+                <span aria-hidden className="proc-ring" />
+                <div className="flex items-start justify-between">
+                  <span className="proc-num">{s.n}</span>
+                  <s.Icon size={18} className="opacity-80" style={{ color: 'rgb(var(--acc2))' }} />
                 </div>
+                <div className="mt-3">
+                  <div className="text-white font-semibold">{s.title}</div>
+                  <div className="proc-desc">{s.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
 
-                {/* мягкие «искры» при ховере */}
-                <div
-                  className={clsx(
-                    'pointer-events-none absolute -inset-8 rounded-[26px] opacity-0',
-                    'bg-[radial-gradient(40px_30px_at_70%_30%,rgba(255,255,255,.14),transparent_70%)]',
-                    'group-hover:opacity-100 transition-opacity duration-500'
-                  )}
-                />
-              </div>
-            </div>
-          ))}
+          {/* Трек теперь сразу под сеткой */}
+          <div className="proc-track">
+            <span className="proc-fill" />
+            <span className="proc-runner" />
+          </div>
         </div>
       </div>
     </section>
-  );
+  )
 }

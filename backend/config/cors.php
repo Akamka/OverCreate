@@ -28,5 +28,5 @@ return [
     'max_age' => 0,
 
     // Куки/креды — нам не нужно, т.к. используем заголовки; оставим false
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 ];

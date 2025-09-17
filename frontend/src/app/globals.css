@@ -182,6 +182,21 @@ body{
   --mx: 50%; --my: 50%;
   --dx: 0px; --dy: 0px;
 
+  /* меньше шансов на «мигание» при пересборке слоёв */
+.hcard, .hcard3d {
+  backface-visibility: hidden;
+  transform: translateZ(0);     /* промоутим на GPU */
+  will-change: transform;       /* подсказываем движку */
+}
+
+/* если оставляете сканлайн/шарды, пусть не перехватывают события */
+.hcard-engrave,
+.hcard-shard,
+.hcard-shine,
+.hcard-scan {
+  pointer-events: none;
+}
+
   /* !!! убрали contain: paint; чтобы не резало эффекты */
   /* contain: layout style;  — можно оставить, если нужно, но не paint */
   transform-style: preserve-3d;
@@ -379,3 +394,1143 @@ body{
   .hcard::before{ animation:none !important; }
   .hcard-shine, .hcard-scan{ display:none !important; }
 }
+
+
+/*! === Accent utilities (общие для страниц услуг) ===
+   --acc1 и --acc2 приходят как "r g b" (например "168 85 247") */
+
+:root {
+  --acc1: 56 189 248;
+  --acc2: 168 85 247;
+}
+
+/* Текст/градиент/бордер по акценту */
+.text-acc1 { color: rgb(var(--acc1)); }
+.text-acc2 { color: rgb(var(--acc2)); }
+
+.bg-acc-grad {
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+}
+
+.border-acc2 {
+  border-color: rgb(var(--acc2) / .35);
+}
+
+/* Чуть мягче ховер на градиенте */
+.bg-acc-grad:hover {
+  filter: brightness(1.06);
+}
+
+
+
+
+
+
+
+
+
+/*! ===== PricingCard — видимая рамка + градиентная обводка ===== */
+
+
+.prx-card{
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid rgba(255,255,255,.06);
+  transition: transform .24s ease, box-shadow .24s ease, background .24s ease;
+
+  /* толщина и вынос кольца наружу */
+  --ring-w: 2px;                           /* базовая толщина */
+  --ring-inset: calc(-1 * var(--ring-w));  /* слегка за пределы карточки */
+}
+
+/* на hover — мягкий подъём и более толстая рамка */
+.hcard:hover .prx-card{
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.32),
+    0 0 0 1px rgba(255,255,255,.10) inset;
+
+  --ring-w: 3.5px;
+  --ring-inset: calc(-1 * var(--ring-w));
+}
+
+/* цветная градиентная обводка поверх ВСЕГО контента */
+.prx-outline{
+  position: absolute;
+  inset: var(--ring-inset);
+  padding: var(--ring-w);
+  border-radius: inherit;
+  pointer-events: none;
+
+  /* главное — поднять над hcard-engrave / shine / орбитами */
+  z-index: 40;
+
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  filter: saturate(115%);
+
+  /* вырезаем центр — оставляем только «кольцо» */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+
+  /* слегка видна даже без hover */
+  opacity: .38;
+  transition: opacity .22s ease, filter .22s ease;
+}
+
+.hcard:hover .prx-outline{
+  opacity: .96;
+  filter: saturate(125%) drop-shadow(0 0 10px rgb(var(--acc2) / .22));
+}
+
+/* видимость при фокусе с клавиатуры */
+.hcard:focus-within .prx-outline{
+  opacity: .98;
+}
+
+
+
+
+
+/*! === Elevation + Neon outline (fix blur) === */
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes prc-spin { to { --ang: 360deg; } }
+
+.prc-card{
+  border-radius: inherit;
+  /* создаём отдельный слой и отключаем «мыло» на анимации */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+  transition:
+    transform .22s cubic-bezier(.2,.6,.2,1),
+    box-shadow .22s ease;
+}
+
+/* мягкий подъём БЕЗ scale (который даёт размытие) */
+.hcard:hover .prc-card{
+  transform: translate3d(0,-4px,0);
+  box-shadow: 0 16px 40px rgba(0,0,0,.30);
+}
+
+/* неоновая рамка по контуру */
+.prc-ring{
+  position:absolute; inset:0; padding:1px; border-radius: inherit;
+  pointer-events:none; z-index:1;
+  background:
+    conic-gradient(from var(--ang,0deg) at 50% 50%,
+      rgb(var(--acc1)) 0turn,
+      color-mix(in oklch, rgb(var(--acc1)) 45%, rgb(var(--acc2)) 55%) .25turn,
+      rgb(var(--acc2)) .5turn,
+      color-mix(in oklch, rgb(var(--acc2)) 45%, rgb(var(--acc1)) 55%) .75turn,
+      rgb(var(--acc1)) 1turn);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  filter: saturate(118%);
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.hcard:hover .prc-ring{ opacity:.9; animation: prc-spin 6s linear infinite; }
+
+/* мягкий spotlight за курсором (чуть приглушил, чтобы не «мылил» белый текст) */
+.prc-spot{
+  position:absolute; inset:0; border-radius: inherit; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(180px 140px at var(--mx,50%) var(--my,50%), rgb(var(--acc2) / .14), transparent 60%),
+    radial-gradient(280px 220px at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .09), transparent 70%);
+  mix-blend-mode: screen;
+  filter: saturate(140%);
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.hcard:hover .prc-spot{ opacity:.7; }
+
+/* кнопка — лёгкий подъём и подсветка */
+.btn-elev{
+  transition: transform .18s cubic-bezier(.2,.6,.2,1), box-shadow .18s ease, filter .18s ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}
+.btn-elev:hover{
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.35), 0 0 0 1px rgb(var(--acc2) / .25) inset;
+  filter: saturate(108%);
+}
+
+
+
+
+
+/*! =========================
+   CTA button on PricingCard
+   ========================= */
+.btn-elev{
+  position: relative;
+  overflow: hidden;                 /* для блика */
+  border-radius: 0.75rem;           /* совпадает с rounded-xl */
+  transform: translateZ(0);
+  background-size: 160% 160%;       /* чтобы можно было чуть «плавать» градиентом */
+  transition:
+    transform .22s ease,
+    box-shadow .22s ease,
+    background-position .6s ease;
+  will-change: transform, box-shadow, background-position;
+}
+
+/* лёгкий подъём и мягкая тень */
+.btn-elev:hover{
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 24px rgb(var(--acc2) / .35),
+    0 1px 0 rgb(255 255 255 / .20) inset;
+  background-position: 70% 0;       /* едва сдвигаем градиент */
+}
+
+/* короткая реакция на клик */
+.btn-elev:active{
+  transform: translateY(-1px) scale(.99);
+  transition-duration: .08s;
+}
+
+/* доступный фокус */
+.btn-elev:focus-visible{
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / .35),
+    0 0 0 6px rgb(var(--acc2) / .35);
+}
+
+
+
+@keyframes btnSheen{
+  to { transform: rotate(20deg) translateX(55%); }
+}
+
+
+
+
+
+/*! =========================
+   PricingCard FX — Orbital Spheres (как были)
+   ========================= */
+.pcx-layers{ position:absolute; inset:0; pointer-events:none; z-index:3; }
+
+.pcx-orbits{
+  position:absolute; inset:0;
+  transform: translate3d(var(--gx,0px), var(--gy,0px), 0);
+  transition: transform .2s ease-out;
+  filter: saturate(130%);
+  will-change: transform;
+}
+
+.pcx-orbit{
+  position:absolute; left:50%; top:50%;
+  width:12px; height:12px; border-radius:999px;
+  mix-blend-mode:screen; opacity:0; transition:opacity .25s ease;
+  background: radial-gradient(circle at 50% 50%, #fff 0 35%, rgb(var(--acc2)) 60%, transparent 62%);
+  box-shadow:
+    0 0 8px rgb(var(--acc2) / .9),
+    0 0 18px rgb(var(--acc1) / .7);
+  transform: translateZ(0);
+  will-change: transform;
+  animation: pcx-orbit-rot 8s linear infinite;
+  animation-play-state: paused;
+}
+.hcard:hover .pcx-orbit{ opacity:1; animation-play-state: running; }
+
+.pcx-orbit.a{
+  transform-origin: -120px -60px;
+  animation-duration: 7s;
+}
+.pcx-orbit.b{
+  transform-origin: 110px -15px;
+  animation-direction: reverse;
+  animation-duration: 9.5s;
+  width:10px; height:10px;
+  filter: saturate(140%);
+}
+.pcx-orbit.c{
+  transform-origin: -40px 110px;
+  animation-duration: 12s;
+  width:14px; height:14px;
+  box-shadow:
+    0 0 10px rgb(var(--acc1) / .85),
+    0 0 20px rgb(var(--acc2) / .65);
+  background: radial-gradient(circle at 50% 50%, #fff 0 35%, rgb(var(--acc1)) 60%, transparent 62%);
+}
+@keyframes pcx-orbit-rot{
+  from{ transform: rotate(0deg); }
+  to  { transform: rotate(360deg); }
+}
+
+/* Ripple */
+.pcx-ripple{
+  position:absolute; inset:0; pointer-events:none; opacity:0;
+  background:
+    radial-gradient(120px 90px at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .30), transparent 60%),
+    radial-gradient(200px 150px at var(--mx,50%) var(--my,50%), rgb(var(--acc2) / .22), transparent 70%);
+  transform: scale(.7);
+  animation: pcx-ripple 680ms cubic-bezier(.2,.6,.25,1) 1;
+}
+@keyframes pcx-ripple{
+  0%   { opacity:0; transform: scale(.7); }
+  12%  { opacity:.85; }
+  100% { opacity:0; transform: scale(1.25); }
+}
+
+/* Бейдж */
+.recommend-badge{
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  color:#fff; position:relative; overflow:hidden;
+  transition: transform .3s ease, box-shadow .3s ease;
+  background-size:200% 200%;
+  animation: shimmer 4s linear infinite;
+}
+.recommend-badge:hover{
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgb(var(--acc2) / .6), 0 0 30px rgb(var(--acc1) / .4);
+}
+@keyframes shimmer{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
+}
+
+
+
+
+
+
+
+
+/*! ===== Hero ring 3D lift (tuned softer) ===== */
+.hero-card .hcard-scan{ display:none !important; } /* скан не мешает */
+
+.hero-stage{
+  /* меньше «глубины» — эффект мягче */
+  perspective: 1400px;                 /* было 1000px */
+  transform-style: preserve-3d;
+}
+
+.hero-ring-wrap{
+  transform-style: preserve-3d;        /* для translateZ */
+}
+
+.hero-ring{
+  position:absolute; inset:0; border-radius:9999px;
+  transform: translateZ(0);            /* в покое — на карточке */
+  transition:
+    transform .35s cubic-bezier(.22,.8,.2,1),
+    opacity   .30s ease,
+    filter    .30s ease;
+  will-change: transform, opacity, filter;
+}
+
+/* деликатная эллиптическая тень под кольцом */
+.hero-ring-shadow{
+  position:absolute; left:14%; right:12%; bottom:9%;
+  height:18%; border-radius:50%;
+  background: radial-gradient(60% 90% at 50% 30%, rgba(0,0,0,.28), transparent 65%);
+  filter: blur(14px);                   /* было 18px */
+  opacity:0;
+  transform: translate(0,0) scale(1);
+  transition: opacity .30s ease, transform .30s ease;
+  pointer-events:none;
+}
+
+/* ── эффект «оторвалось» — теперь мягче ── */
+.hero-card:hover .hero-ring{
+  transform:
+    translate3d(var(--dx,0px), var(--dy,0px), 64px)  /* было 120px */
+    rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))
+    scale(1.01);                                    /* было 1.02 */
+  opacity:.44;                                      /* было .45 */
+}
+
+.hero-card:hover .hero-ring-shadow{
+  opacity:.42;                                      /* было .62 */
+  transform: translate(var(--dx,0px), var(--dy,0px)) scale(1.06); /* было 1.12 */
+}
+
+/* reduce-motion: тоже мягче */
+@media (prefers-reduced-motion: reduce){
+  .hero-card:hover .hero-ring{
+    transform: translate3d(0,0,56px) scale(1.01);   /* было 110px */
+  }
+  .hero-card:hover .hero-ring-shadow{
+    opacity:.40; transform: scale(1.05);
+  }
+}
+
+
+
+
+
+
+
+/*! =========================
+   HERO metrics — visible outline hover (pro-clean)
+   ========================= */
+.hero-metrics{ --tile-r:18px; }
+
+.hero-metrics .metric{
+  position: relative;
+  border-radius: var(--tile-r);
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 6px 18px rgba(0,0,0,.18);
+  backdrop-filter: blur(6px);
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background .18s ease,
+    filter .18s ease;
+  outline: none;
+  overflow: hidden;   /* клип подсветки */
+  isolation: isolate; /* корректное смешение слоёв */
+}
+
+/* число — аккуратный акцент-градиент */
+.hero-metrics .metric__num{
+  font-size: 1.125rem; /* text-lg */
+  font-weight: 700;
+  background: linear-gradient(135deg, rgb(var(--acc2)), rgb(var(--acc1)));
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  transition: filter .18s ease;
+}
+
+.hero-metrics .metric__label{
+  margin-top: 6px;
+  font-size: .92rem;
+  line-height: 1.35rem;
+  color: rgba(255,255,255,.74);
+  transition: color .18s ease;
+}
+
+/* Внутренняя мягкая подсветка — появляется на hover */
+.hero-metrics .metric::after{
+  content:"";
+  position:absolute; inset:1px;
+  border-radius: calc(var(--tile-r) - 1px);
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .18s ease;
+  /* лёгкая акцентная вуаль внутри плитки */
+  background:
+    radial-gradient(140% 100% at 80% -10% , rgb(var(--acc2) / .12), transparent 55%),
+    radial-gradient(100% 140% at -10% 100%, rgb(var(--acc1) / .10), transparent 55%);
+  mix-blend-mode: screen;
+}
+
+/* Внешнее тонкое «кольцо-бордер» 2px — на hover */
+.hero-metrics .metric::before{
+  content:"";
+  position:absolute; inset:-2px;
+  border-radius: calc(var(--tile-r) + 2px);
+  pointer-events:none;
+  box-shadow: 0 0 0 0 rgba(0,0,0,0); /* базово скрыто */
+  transition: box-shadow .18s ease;
+}
+
+/* HOVER / FOCUS — заметное, но чистое выделение */
+.hero-metrics .metric:hover,
+.hero-metrics .metric:focus-visible{
+  transform: translateY(-2px) scale(1.01);
+  border-color: rgb(var(--acc2) / .55);
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+  box-shadow:
+    0 10px 28px rgba(0,0,0,.26);
+}
+
+.hero-metrics .metric:hover::before,
+.hero-metrics .metric:focus-visible::before{
+  box-shadow: 0 0 0 2px rgb(var(--acc2) / .42); /* видимая обводка */
+}
+
+.hero-metrics .metric:hover::after,
+.hero-metrics .metric:focus-visible::after{
+  opacity: 1; /* мягкая внутренняя подсветка */
+}
+
+.hero-metrics .metric:hover .metric__num,
+.hero-metrics .metric:focus-visible .metric__num{
+  filter: saturate(135%); /* цифра чуть насыщеннее */
+}
+
+.hero-metrics .metric:hover .metric__label,
+.hero-metrics .metric:focus-visible .metric__label{
+  color: rgba(255,255,255,.86);
+}
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hero-metrics .metric:hover,
+  .hero-metrics .metric:focus-visible{ transform:none; }
+}
+
+
+
+
+
+
+/*! =========================
+   HERO card — ultra subtle highlight
+   ========================= */
+.hero-card .hcard-scan{ display:none !important; }
+
+.hero-card{
+  position: relative;
+  border-radius: 22px;
+  transform: translateZ(0);
+  transition: transform .34s cubic-bezier(.2,.6,.2,1), filter .34s ease;
+}
+
+/* тонкое акцентное кольцо по периметру (покажем только на hover) */
+.hero-card::before{
+  content:"";
+  position:absolute; inset:0; padding:1px; border-radius:inherit;
+  background: linear-gradient(135deg, rgb(var(--acc1) / .45), rgb(var(--acc2) / .45));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0;
+  transition: opacity .34s ease;
+  pointer-events: none;
+}
+
+/* очень мягкая внутренняя вуаль */
+.hero-card::after{
+  content:"";
+  position:absolute; inset:2px; border-radius:inherit; pointer-events:none;
+  background:
+    radial-gradient(80% 70% at 80% 15%, rgb(var(--acc1) / .10), transparent 62%),
+    radial-gradient(70% 80% at 15% 85%, rgb(var(--acc2) / .08), transparent 62%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity .34s ease;
+}
+
+/* базовая «стеклянная» подложка — плавные изменения */
+.hero-card .hcard-body{
+  transition: box-shadow .34s ease, background .34s ease, border-color .34s ease;
+}
+
+@media (hover:hover){
+  .hero-card:hover{
+    transform: translateY(-2px); /* едва заметный подъём */
+  }
+  .hero-card:hover .hcard-body{
+    background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.035));
+    box-shadow:
+      0 10px 26px rgba(0,0,0,.28),
+      inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .hero-card:hover::before{ opacity:.28; } /* лёгкая обводка */
+  .hero-card:hover::after { opacity:.22; } /* деликатная вуаль */
+}
+
+/* уважение к reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hero-card{ transition: filter .2s ease; }
+  .hero-card:hover{ transform:none; }
+}
+
+
+
+
+
+
+
+
+
+/*! =========================
+   HERO buttons — ultra subtle lift
+   ========================= */
+.btn-acc{
+  position:relative;
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:.625rem 1.15rem;             /* px-5 py-2.5 */
+  border-radius:16px;
+  font-weight:600; line-height:1;
+  user-select:none;
+  transition: transform .18s cubic-bezier(.2,.6,.2,1), box-shadow .18s ease, border-color .18s ease, background .18s ease;
+  will-change: transform;
+  outline: none;
+}
+
+/* Primary (градиент как был) */
+.btn-acc-primary{
+  color:#fff;
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  box-shadow: 0 4px 12px rgba(0,0,0,.16);
+}
+.btn-acc-primary:hover,
+.btn-acc-primary:focus-visible{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0,0,0,.22);
+}
+
+/* Outline (контурная как была) */
+.btn-acc-outline{
+  color: rgb(var(--acc2));
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgb(var(--acc2) / .55);
+  box-shadow: 0 2px 8px rgba(0,0,0,.10) inset;
+}
+.btn-acc-outline:hover,
+.btn-acc-outline:focus-visible{
+  transform: translateY(-2px);
+  background: rgba(255,255,255,.03);
+  border-color: rgb(var(--acc2) / .70);
+  box-shadow: 0 8px 18px rgba(0,0,0,.18);
+}
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .btn-acc{ transition: box-shadow .18s ease, border-color .18s ease, background .18s ease; }
+  .btn-acc:hover,.btn-acc:focus-visible{ transform:none; }
+}
+
+
+
+
+
+/*! ======================================
+   ServiceHighlights — WOW-tiles (магнитный спотлайт + неоновая рамка + кометы)
+   ====================================== */
+@property --ang { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+@keyframes hlx-spin { to { --ang: 360deg; } }
+@keyframes hlx-orbit {
+  from { transform: rotate(0deg) translateX(var(--orbR,110px)) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(var(--orbR,110px)) rotate(-360deg); }
+}
+@keyframes hlx-rip {
+  0% { opacity:0; transform: scale(.7); }
+  12%{ opacity:.9; }
+  100%{ opacity:0; transform: scale(1.25); }
+}
+
+.hlx-grid { --tile-r:18px; }
+
+.hlx-card{
+  position: relative;
+  border-radius: var(--tile-r);
+  padding: 18px 18px 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 6px 20px rgba(0,0,0,.22);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  outline: none;
+  transition:
+    transform .22s cubic-bezier(.2,.6,.2,1),
+    box-shadow .22s ease, border-color .22s ease, background .22s ease;
+}
+
+/* неоновая «рамка-кольцо» — появляется только на hover/focus */
+.hlx-card::before{
+  content:"";
+  position:absolute; inset:0; padding:1px; border-radius:inherit;
+  background:
+    conic-gradient(from var(--ang,0deg) at 50% 50%,
+      rgb(var(--acc1)) 0turn,
+      color-mix(in oklch, rgb(var(--acc1)) 45%, rgb(var(--acc2)) 55%) .25turn,
+      rgb(var(--acc2)) .5turn,
+      color-mix(in oklch, rgb(var(--acc2)) 45%, rgb(var(--acc1)) 55%) .75turn,
+      rgb(var(--acc1)) 1turn);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  filter: saturate(120%);
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+/* FX слой */
+.hlx-fx{ position:absolute; inset:0; pointer-events:none; z-index:1; }
+
+/* магнитный спотлайт (следует за курсором) */
+.hlx-spot{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(180px 140px at var(--mx,50%) var(--my,50%), rgb(var(--acc2) / .18), transparent 60%),
+    radial-gradient(280px 220px at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .12), transparent 70%);
+  mix-blend-mode: screen;
+  filter: saturate(140%);
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+
+
+/* ripple по клику из точки курсора */
+.hlx-ripple{
+  position:absolute; inset:0; opacity:0; pointer-events:none;
+  background:
+    radial-gradient(120px 90px at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .28), transparent 60%),
+    radial-gradient(200px 150px at var(--mx,50%) var(--my,50%), rgb(var(--acc2) / .18), transparent 70%);
+  transform: scale(.7);
+  animation: hlx-rip 700ms cubic-bezier(.2,.6,.25,1) 1;
+}
+
+/* контент */
+.hlx-ico{
+  width:28px; height:28px; border-radius:10px;
+  display:grid; place-items:center;
+  color: rgb(var(--acc2));
+  background: linear-gradient(135deg, rgb(var(--acc1) / .20), rgb(var(--acc2) / .12));
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+.hlx-desc{
+  margin-top:.55rem;
+  color: rgba(255,255,255,.72);
+  line-height: 1.5;
+}
+
+/* hover/focus — всё очень плавно */
+.hlx-card:hover,
+.hlx-card:focus-visible{
+  transform: translateY(-4px) scale(1.01);
+  border-color: rgba(255,255,255,.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 14px 32px rgba(0,0,0,.30);
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
+}
+.hlx-card:hover::before,
+.hlx-card:focus-visible::before{ opacity:.95; animation: hlx-spin 6s linear infinite; }
+.hlx-card:hover .hlx-spot,
+.hlx-card:focus-visible .hlx-spot{ opacity:.9; }
+.hlx-card:hover .hlx-orbit,
+.hlx-card:focus-visible .hlx-orbit{ opacity:1; }
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .hlx-card{ transition: box-shadow .22s ease, border-color .22s ease, background .22s ease; }
+  .hlx-card:hover, .hlx-card:focus-visible{ transform:none; }
+  .hlx-card::before{ animation:none !important; }
+}
+
+
+
+
+
+
+
+
+
+
+/*! =========================
+   ServiceProcess — Flow track + neon outline cards
+   ========================= */
+
+/* Контейнер */
+.proc-wrap{ --r:18px; position:relative; }
+
+/* Трек под карточками */
+.proc-track{
+  position: relative;      /* ← вместо absolute */
+  width: 100%;
+  height: 12px;
+  margin-top: 18px;        /* ← теперь под сеткой карточек */
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  pointer-events:none;
+}
+
+
+/* Общие переменные тайминга для бегунка и заливки */
+.proc-wrap{
+  --proc-t: .55s;                              /* длительность анимации */
+  --proc-ease: cubic-bezier(.22,.61,.36,1);    /* одинаковая функция плавности */
+}
+
+
+/* Заполнение трека — яркое и синхронное */
+.proc-track .proc-fill{
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width: var(--p);
+  border-radius: inherit;
+
+  background: linear-gradient(90deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  opacity: 0.8;
+  filter: saturate(160%) blur(0.5px);
+
+  /* тот же тайминг, что у бегунка */
+  transition: width var(--proc-t) var(--proc-ease);
+  will-change: width;
+}
+
+
+/* Бегунок — исходный вид, но с общим таймингом */
+.proc-track .proc-runner{
+  position:absolute; top:50%;
+  width:18px; height:18px; border-radius:999px;
+  left: var(--p);
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(circle at 35% 35%, #fff 0 36%, rgb(var(--acc2)) 60%, transparent 62%);
+  box-shadow:
+    0 0 12px rgb(var(--acc2) / .85),
+    0 0 28px rgb(var(--acc1) / .55);
+
+  /* ключ: тот же тайминг, что у заливки */
+  transition: left var(--proc-t) var(--proc-ease);
+  will-change: left;
+  pointer-events:none;
+}
+
+
+
+
+/* =============== */
+
+
+/*! Сетка карточек */
+.proc-grid{ position:relative; z-index:2; }
+
+/* Карточка шага */
+.proc-card{
+  position:relative;
+  border-radius: var(--r);
+  padding: 18px 18px 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 6px 20px rgba(0,0,0,.22);
+  backdrop-filter: blur(6px);
+  outline: none;
+  transform: translateZ(0);           /* слой без «мыла» */
+  backface-visibility: hidden;
+  will-change: transform, box-shadow, border-color, background;
+  transition:
+    transform .22s cubic-bezier(.2,.6,.2,1),
+    box-shadow .22s ease, border-color .22s ease, background .22s ease;
+}
+
+/* Неоновая рамка по контуру (аналог метрик/hero) */
+@property --ang { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+@keyframes proc-spin { to { --ang:360deg; } }
+
+.proc-ring{
+  content:"";
+  position:absolute; inset:0; padding:1px; border-radius: inherit;
+  background:
+    conic-gradient(from var(--ang,0deg) at 50% 50%,
+      rgb(var(--acc1)) 0turn,
+      color-mix(in oklch, rgb(var(--acc1)) 45%, rgb(var(--acc2)) 55%) .25turn,
+      rgb(var(--acc2)) .5turn,
+      color-mix(in oklch, rgb(var(--acc2)) 45%, rgb(var(--acc1)) 55%) .75turn,
+      rgb(var(--acc1)) 1turn);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity:0; filter: saturate(118%);
+  transition: opacity .25s ease;
+  pointer-events:none;
+}
+
+/* Номер шага и описание */
+.proc-num{
+  font-size:.9rem;
+  color: rgba(255,255,255,.55);
+}
+.proc-desc{
+  margin-top:.35rem;
+  color: rgba(255,255,255,.72);
+  line-height: 1.45;
+  font-size: .95rem;
+}
+
+/* Hover / focus — мягкий подъём, лёгкая подсветка и рамка */
+.proc-card:hover,
+.proc-card:focus-visible{
+  transform: translateY(-6px);
+  border-color: rgba(255,255,255,.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 16px 36px rgba(0,0,0,.30);
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
+}
+.proc-card:hover .proc-ring,
+.proc-card:focus-visible .proc-ring{ opacity:.95; animation: proc-spin 6s linear infinite; }
+
+/* Motion-friendly */
+@media (prefers-reduced-motion: reduce){
+  .proc-card:hover, .proc-card:focus-visible{ transform:none; }
+  .proc-ring{ animation:none !important; }
+}
+
+
+
+
+
+
+/*! ===== Service FAQ (аккуратный hover + плавное раскрытие) ===== */
+.faq-list { background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.02)); }
+
+/* элемент FAQ как «строка» с неоновой рамкой на hover/open */
+.faq-item {
+  position: relative;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.faq-item:first-child { border-top: 0; }
+
+/* неоновая рамка */
+@property --ang { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+@keyframes faq-spin { to { --ang:360deg; } }
+
+.faq-item::before{
+  content:"";
+  position:absolute; left:8px; right:8px; top:6px; bottom:6px;
+  padding:1px; border-radius:14px;
+  background:
+    conic-gradient(from var(--ang,0deg) at 50% 50%,
+      rgb(var(--acc1)) 0turn,
+      color-mix(in oklch, rgb(var(--acc1)) 45%, rgb(var(--acc2)) 55%) .25turn,
+      rgb(var(--acc2)) .5turn,
+      color-mix(in oklch, rgb(var(--acc2)) 45%, rgb(var(--acc1)) 55%) .75turn,
+      rgb(var(--acc1)) 1turn);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity:0; transition: opacity .25s ease;
+  pointer-events:none;
+  filter: saturate(120%);
+}
+.faq-item:hover::before,
+.faq-item[open]::before{
+  opacity:.9; animation: faq-spin 6s linear infinite;
+}
+
+/* строка-summary: спотлайт за курсором + very subtle glass */
+.faq-summary{
+  position: relative;
+  border-radius: 14px;
+  transition: background .2s ease, box-shadow .2s ease, transform .22s cubic-bezier(.2,.6,.2,1);
+  outline: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.015));
+}
+.faq-summary::after{
+  content:"";
+  position:absolute; inset:0; border-radius:inherit;
+  background:
+    radial-gradient(170px 130px at var(--mx,50%) var(--my,50%), rgb(var(--acc2) / .14), transparent 60%),
+    radial-gradient(260px 200px at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .10), transparent 70%);
+  mix-blend-mode: screen;
+  opacity:0; transition: opacity .15s ease;
+  pointer-events:none;
+}
+.faq-item:hover .faq-summary{ transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.18); }
+.faq-item:hover .faq-summary::after{ opacity:.95; }
+.faq-summary:focus-visible{ box-shadow: 0 0 0 2px rgb(var(--acc2) / .45); }
+
+/* chevron поворачивается */
+.faq-item[open] .faq-chevron{ transform: rotate(180deg); }
+
+/* плавное раскрытие ответа */
+.faq-panel { background: transparent; }
+.faq-item[open] .faq-panel{ grid-template-rows: 1fr; }
+
+.faq-inner{ opacity: 0; transform: translateY(-6px); transition: opacity .3s ease, transform .3s ease; }
+.faq-item[open] .faq-inner{ opacity: .9; transform: translateY(0); }
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .faq-summary{ transition: background .2s ease, box-shadow .2s ease; }
+  .faq-item:hover .faq-summary{ transform:none; }
+  .faq-item::before{ animation:none !important; }
+}
+
+
+
+
+
+
+
+/*! CTA */
+
+
+/* =========================
+   Contact v3 — плавная форма с прогресс-рейлом
+   ========================= */
+
+/* контейнер формы */
+.cta3-card {
+  position: relative;
+  border-radius: 22px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 12px 34px rgba(0,0,0,.28);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  isolation: isolate; /* чтобы внутренние эффекты не влияли на скролл */
+}
+
+/* сетка полей */
+.cta3-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 900px) {
+  .cta3-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cta3-grid > .i2-field:nth-child(3),
+  .cta3-grid > .i2-field:nth-child(4),
+  .cta3-grid > .i2-field:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* поле с плавающим лейблом */
+.i2-field {
+  position: relative;
+}
+.i2-input {
+  width: 100%;
+  border-radius: 14px;
+  padding: 18px 16px 16px;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
+  outline: none;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.i2-input:focus {
+  border-color: rgb(var(--acc2) / .55);
+  box-shadow: 0 0 0 2px rgb(var(--acc2) / .18);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.035));
+}
+.i2-label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255,255,255,.56);
+  pointer-events: none;
+  transition: transform .18s ease, font-size .18s ease, top .18s ease, opacity .18s ease;
+  background: transparent;
+}
+.i2-input:focus + .i2-label,
+.i2-input:not(:placeholder-shown) + .i2-label {
+  top: 6px;
+  transform: translateY(0);
+  font-size: 12px;
+  opacity: .85;
+}
+
+/* область действия (кнопка + примечание) */
+.cta3-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.cta3-button {
+  border: none;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 600;
+  color: #0b0b0c;
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.cta3-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgb(var(--acc2) / .32);
+  filter: brightness(1.03);
+}
+.cta3-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 14px rgb(var(--acc2) / .28);
+}
+.cta3-note {
+  color: rgba(255,255,255,.55);
+  font-size: 12px;
+}
+
+
+
+/* на всякий случай — секция не «ломает» прокрутку */
+.oc-section {
+  overflow: visible;
+}
+
+
+
+
+/* скрываем нативную «красную» подсветку, всё контролируем сами */
+.i2-input { box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+.i2-input:invalid { box-shadow: inset 0 1px 0 rgba(255,255,255,.07); border-color: rgba(255,255,255,.12); }
+
+/* наш класс ошибки — только когда мы решим (touched && dirty && !valid) */
+.i2-input.is-invalid {
+  border-color: rgba(255, 99, 99, .7);
+  box-shadow: 0 0 0 2px rgba(255, 99, 99, .18);
+}
+.i2-input.is-invalid + .i2-label {
+  color: rgba(255, 160, 160, .85);
+}
+
+/* текст ошибки под полем */
+.i2-msg {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgba(255, 160, 160, .95);
+}
+
+
+/* валидное поле */
+.i2-input.is-valid {
+  border-color: rgba(99, 220, 132, .75);
+  box-shadow: 0 0 0 2px rgba(99, 220, 132, .25);
+}
+.i2-input.is-valid + .i2-label {
+  color: rgba(160, 255, 180, .85);
+}
+
+
+
+/* верхний прогресс-бар */
+.cta3-topbar { position:absolute; left:0; right:0; top:0; height:6px; background:rgba(255,255,255,.08); overflow:hidden; }
+.cta3-topbar-fill { display:block; height:100%; width:calc(var(--fill, 0) * 100%); background:linear-gradient(90deg, rgb(var(--acc1)), rgb(var(--acc2))); transition:width .18s ease; }
+
+
+
+/*! --- Scroll safety for service pages --- */
+
+/* секции услуг не создают своих scroll-контейнеров */
+.oc-section { overflow: visible; }
+
+/* любые декоративные фикс-слои не должны перехватывать колесо */
+.service-theme,
+.service-theme * {
+  pointer-events: none !important;
+}
+
+/* (на всякий случай) не вводим вложенных скроллов на main */
+main { overscroll-behavior: auto; }

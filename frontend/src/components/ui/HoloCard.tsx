@@ -132,7 +132,7 @@ export default function HoloCard({
           <div className="hcard-shard a" />
           <div className="hcard-shard b" />
           <div className="hcard-shine" />
-          <div className="hcard-chip" />
+          {/* <div className="hcard-chip" /> */}
 
           {/* контент (слои с глубиной) */}
           <div className="relative z-10">

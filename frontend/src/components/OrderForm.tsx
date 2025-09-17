@@ -2,8 +2,9 @@
 import { useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import type { OrderPayload } from '@/types/order'
+import type { ServiceSlug } from '@/types/service'
 
-export default function OrderForm({ service }: { service?: OrderPayload['service_type'] }){
+export default function OrderForm({ service }: { service?: ServiceSlug }){
   const [sending, setSending] = useState(false)
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>)=>{
@@ -15,7 +16,7 @@ export default function OrderForm({ service }: { service?: OrderPayload['service
       email:      String(fd.get('email')||'').trim(),
       phone:      String(fd.get('phone')||'').trim(),
       message:    String(fd.get('message')||'').trim(),
-      service_type: service,
+      service_type: service, // ✅ без any
     }
     setSending(true)
     try{

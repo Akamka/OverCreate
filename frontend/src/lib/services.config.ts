@@ -18,9 +18,9 @@ export type ServiceConfig = {
   acc1: RGB;
   acc2: RGB;
   pricing?: PricingTier[];
-  // ...при необходимости добавь ещё поля (портфолио и т.п.)
 };
 
+// ✅ закрепляем единый слаг "printing"
 export const SERVICES = {
   motion: {
     title: 'Моушн-дизайн',
@@ -29,7 +29,7 @@ export const SERVICES = {
     acc2: [168, 85, 247],
     pricing: [
       { name: 'Старт', price: 'от $490', period: 'проект', features: ['1–2 концепта', 'Базовая анимация', '5–7 дней'], ctaHref: '#contact' },
-      { name: 'Pro', price: 'от $1200', period: 'проект', features: ['3–4 концепта','UI-система','Интерактив','10–14 дней'], popular: true, ctaHref: '#contact' },
+      { name: 'Pro',   price: 'от $1200', period: 'проект', features: ['3–4 концепта','UI-система','Интерактив','10–14 дней'], popular: true, ctaHref: '#contact' },
     ],
   },
   graphic: {
@@ -50,7 +50,7 @@ export const SERVICES = {
     acc1: [139, 92, 246],
     acc2: [56, 189, 248],
   },
-  print: {
+  printing: {
     title: 'Цифровая печать',
     desc: 'Визитки, плакаты, наружка',
     acc1: [255, 170, 120],
@@ -58,5 +58,5 @@ export const SERVICES = {
   },
 } as const satisfies Record<string, ServiceConfig>;
 
-// Союз из реальных ключей (строгий тип)
+// строгий тип из реальных ключей
 export type ServiceSlug = keyof typeof SERVICES;

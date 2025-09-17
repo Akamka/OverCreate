@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import SmoothScroll from '@/components/SmoothScroll'
 import PremiumBackground from '@/components/PremiumBackground'
+import RouteAwareSmoothScroll from '@/components/utils/RouteAwareSmoothScroll'
 import { Inter } from 'next/font/google'
 
 const inter = Inter({ subsets: ['latin','cyrillic'], display: 'swap' })
@@ -19,9 +19,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru">
       <body className={`${inter.className} bg-[#0A0A0F] text-neutral-50 antialiased`}>
-        {/* новый премиальный фон */}
+        {/* фон */}
         <PremiumBackground />
-        <SmoothScroll />
+
+        {/* SmoothScroll только там, где не ломает прокрутку */}
+        <RouteAwareSmoothScroll />
+
         {children}
       </body>
     </html>

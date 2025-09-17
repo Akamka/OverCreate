@@ -1,4 +1,3 @@
-// src/app/services/[slug]/page.tsx
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -9,6 +8,9 @@ import ServicePricing from '@/components/services/ServicePricing';
 import ServiceProcess from '@/components/services/ServiceProcess';
 import ServicePortfolio from '@/components/services/ServicePortfolio';
 import ServiceCTA from '@/components/services/ServiceCTA';
+import ServiceHighlights from '@/components/services/ServiceHighlights';
+import ServiceFAQ from '@/components/services/ServiceFAQ';
+import type { CSSVars } from '@/types/ui';
 
 /* --- SSG: список страниц услуг --- */
 export function generateStaticParams(): { slug: ServiceSlug }[] {
@@ -48,43 +50,37 @@ export default function ServicePage({ params }: PageProps) {
   const cfg: ServiceConfig | undefined = SERVICES[params.slug];
   if (!cfg) notFound();
 
+  // Глобальные переменные акцента на странице
+  const vars: CSSVars = { '--acc1': cfg.acc1.join(' '), '--acc2': cfg.acc2.join(' ') };
+
   return (
-    <main className="relative">
-      {/* HERO (шапка услуги) */}
-     <ServiceHero
-  slug={params.slug}
-  title={cfg.title}
-  desc={cfg.desc}
-  acc1={cfg.acc1}       // ← добавить
-  acc2={cfg.acc2}       // ← добавить
-/>
-
-
-      {/* СТОИМОСТЬ */}
-      <ServicePricing
-        pricing={cfg.pricing}
-        accentFrom={cfg.acc1}
-        accentTo={cfg.acc2}
+    <main className="relative" style={vars}>
+      {/* HERO со встроенным ServiceTheme */}
+      <ServiceHero
+        slug={params.slug}
+        title={cfg.title}
+        desc={cfg.desc}
+        acc1={cfg.acc1}
+        acc2={cfg.acc2}
       />
 
-      {/* ПРОЦЕСС */}
-      <ServiceProcess
-        accentFrom={cfg.acc1}
-        accentTo={cfg.acc2}
-      />
+      {/* Акцентные хайлайты — «что получаете» */}
+      <ServiceHighlights accentFrom={cfg.acc1} accentTo={cfg.acc2} />
 
-      {/* ПОРТФОЛИО ПО ЭТОЙ УСЛУГЕ */}
-      <ServicePortfolio
-        service={params.slug}
-        accentFrom={cfg.acc1}
-        accentTo={cfg.acc2}
-      />
+      {/* Стоимость */}
+      <ServicePricing pricing={cfg.pricing} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
 
-      {/* CTA / КОНТАКТЫ */}
-      <ServiceCTA
-        accentFrom={cfg.acc1}
-        accentTo={cfg.acc2}
-      />
+      {/* Процесс */}
+      <ServiceProcess accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+
+      {/* Портфолио */}
+      <ServicePortfolio service={params.slug} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+
+      {/* FAQ */}
+      <ServiceFAQ accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+
+      {/* CTA — форма, окрашенная в акцент */}
+      <ServiceCTA service={params.slug} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
     </main>
   );
 }
