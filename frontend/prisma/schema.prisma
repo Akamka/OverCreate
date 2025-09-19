@@ -1,0 +1,54 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String           @id @default(cuid())
+  name             String?
+  email            String           @unique
+  messages         Message[]
+  progressUpdates  ProgressUpdate[]
+  projects         Project[]        @relation("ClientProjects")
+  assignedProjects Project[]        @relation("AssigneeProjects")
+}
+
+model Project {
+  id           String           @id @default(cuid())
+  name         String
+  clientId     String?
+  client       User?            @relation("ClientProjects", fields: [clientId], references: [id])
+  assignedToId String?
+  assignedTo   User?            @relation("AssigneeProjects", fields: [assignedToId], references: [id])
+  progress     Int              @default(0) // 0..100
+  messages     Message[]
+  updates      ProgressUpdate[]
+  createdAt    DateTime         @default(now())
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model ProgressUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  value     Int // 0..100
+  note      String?
+  createdAt DateTime @default(now())
+}
