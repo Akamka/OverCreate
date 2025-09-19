@@ -3,41 +3,43 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+
 import { useMe, useProjects } from '@/lib/hooks';
 import { apiSend, clearToken } from '@/lib/api';
+import { useHydrated } from '@/lib/useHydrated';
 
 function ProgressMini({ value }: { value: number }) {
   const v = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
   return (
     <div className="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
-      <div
-        className="h-full bg-black transition-[width]"
-        style={{ width: `${v}%` }}
-      />
+      <div className="h-full bg-black transition-[width]" style={{ width: `${v}%` }} />
     </div>
   );
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-
-  // Хуки вызываем всегда
-  const { user, error: meError, isLoading: meLoading } = useMe();
+  const hydrated = useHydrated();             // ← ждём, пока появится доступ к storage
+  const { user, unauthorized, error: meError, isLoading: meLoading } = useMe();
   const { projects, error: prError, isLoading: prLoading } = useProjects();
 
   const [logoutLoading, setLogoutLoading] = useState(false);
 
-  const unauthorized = useMemo(() => {
-    const msg = (meError as Error | undefined)?.message || '';
-    return msg.includes('401') || msg.includes('Unauthenticated') || (!user && !meLoading);
-  }, [meError, meLoading, user]);
+  // Пока не гидратировались — отрендерим «скелет», чтобы у сервера и клиента была одна разметка
+  if (!hydrated) {
+    return (
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
+        <div className="rounded-2xl p-6 bg-white shadow">Загрузка…</div>
+      </div>
+    );
+  }
 
   async function onLogout() {
     setLogoutLoading(true);
     try {
       await apiSend('/auth/logout', 'POST');
     } catch {
-      // игнорим ошибки логаута — токен всё равно почистим
+      /* игнор */
     } finally {
       clearToken();
       router.replace('/'); // на главную
@@ -66,11 +68,11 @@ export default function DashboardPage() {
             {logoutLoading ? 'Выходим…' : 'Logout'}
           </button>
         ) : (
-          <span /> // заполнитель, чтобы заголовок был по центру
+          <span />
         )}
       </div>
 
-      {/* Состояние: не авторизован */}
+      {/* Не авторизован */}
       {unauthorized && (
         <div className="rounded-2xl p-6 bg-white shadow">
           <div className="text-lg font-semibold mb-2">Вы не авторизованы</div>
@@ -94,7 +96,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Состояние: загрузка профиля */}
+      {/* Загрузка профиля */}
       {!unauthorized && meLoading && (
         <div className="rounded-2xl p-6 bg-white shadow">Загрузка профиля…</div>
       )}
@@ -116,6 +118,12 @@ export default function DashboardPage() {
               <div className="text-gray-500">Роль</div>
               <div className="font-medium">{user.role}</div>
             </div>
+            <div>
+              <div className="text-gray-500">Подтверждение почты</div>
+              <div className="font-medium">
+                {user.email_verified_at ? '✅ Verified' : '⛔ Not verified'}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -129,9 +137,7 @@ export default function DashboardPage() {
           </div>
 
           {prError && (
-            <div className="mt-3 text-sm text-red-600">
-              Не удалось загрузить проекты.
-            </div>
+            <div className="mt-3 text-sm text-red-600">Не удалось загрузить проекты.</div>
           )}
 
           {!prLoading && !projects.length && !prError && (

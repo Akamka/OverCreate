@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { apiGet, apiSend } from './api';
+import { apiGet, apiSend, getToken } from './api';
 import { getEcho } from './realtime';
 
 import type { User } from '@/types/user';
@@ -10,41 +10,69 @@ import type { Project } from '@/types/project';
 import type { Message } from '@/types/message';
 import type { Paginated } from './api';
 
+type HttpishError = Error & { status?: number };
+
 /** Текущий пользователь */
 export function useMe() {
-  const { data, error, isLoading } = useSWR<User>(
-    '/me',
-    (p: string) => apiGet<User>(p)
+  // ключ зависит от токена — SWR перезапустится сразу после логина/логаута
+  const token = getToken();
+  const key = token ? ['/me', token] : null;
+
+  const { data, error, isLoading, mutate } = useSWR<User>(
+    key,
+    ([p]) => apiGet<User>(p),
+    { shouldRetryOnError: false, revalidateOnFocus: false }
   );
-  return { user: data ?? null, error, isLoading };
+
+  const unauthorized = Boolean((error as HttpishError | undefined)?.status === 401);
+
+  return {
+    user: unauthorized ? null : (data ?? null),
+    unauthorized,
+    error,
+    isLoading,
+    mutate,
+  };
 }
 
-/** Список проектов пользователя (пагинация с бэка) */
-export function useProjects() {
+/** Список проектов пользователя (грузим ТОЛЬКО когда есть токен) */
+export function useProjects(enabled = true) {
+  const token = getToken();
+  const key = enabled && token ? ['/projects', token] : null;
+
   const { data, error, isLoading } = useSWR<Paginated<Project>>(
-    '/projects',
-    (p: string) => apiGet<Paginated<Project>>(p)
+    key,
+    ([p]) => apiGet<Paginated<Project>>(p),
+    { shouldRetryOnError: false, revalidateOnFocus: false }
   );
+
   return { projects: data?.data ?? [], error, isLoading };
 }
 
-/** Один проект по id (id может быть undefined — тогда запрос не пойдёт) */
+/** Один проект по id (тоже ждём токен) */
 export function useProject(id: number | undefined) {
-  const key = typeof id === 'number' && Number.isFinite(id) ? `/projects/${id}` : null;
+  const token = getToken();
+  const key =
+    typeof id === 'number' && Number.isFinite(id) && token ? [`/projects/${id}`, token] : null;
 
   const { data, error, isLoading, mutate } = useSWR<Project>(
     key,
-    (p: string) => apiGet<Project>(p)
+    ([p]) => apiGet<Project>(p),
+    { shouldRetryOnError: false, revalidateOnFocus: false }
   );
 
   return { project: data ?? null, error, isLoading, mutate };
 }
 
-/** Сообщения проекта + отправка + подписка на realtime */
+/** Сообщения + realtime (ждём projectId И токен, иначе не подписываемся/не грузим) */
 export function useMessages(projectId: string | null | undefined) {
-  // если id нет — SWR не дергается
-  const key = projectId ? `/projects/${projectId}/messages` : null;
-  const { data, mutate } = useSWR<Message[]>(key, apiGet);
+  const token = getToken();
+  const key = projectId && token ? [`/projects/${projectId}/messages`, token] : null;
+
+  const { data, mutate } = useSWR<Message[]>(key, ([p]) => apiGet<Message[]>(p), {
+    shouldRetryOnError: false,
+    revalidateOnFocus: false,
+  });
 
   async function send(body: string) {
     if (!projectId) return;
@@ -52,7 +80,6 @@ export function useMessages(projectId: string | null | undefined) {
     await mutate([...(data ?? []), msg], { revalidate: false });
   }
 
-  // WebSocket подписка — всегда внутри useEffect и с отпиской
   useEffect(() => {
     if (!projectId) return;
     const echo = getEcho();

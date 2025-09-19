@@ -8,45 +8,36 @@ use Illuminate\Http\Request;
 
 class UserAdminController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $q = User::query()->select(['id','name','email','role','created_at']);
-
-        if ($search = trim((string) $request->query('q'))) {
-            $q->where(function ($x) use ($search) {
-                $x->where('name', 'like', "%{$search}%")
-                  ->orWhere('email','like', "%{$search}%");
-            });
-        }
-
-        if ($role = $request->query('role')) {
-            $q->where('role', $role);
-        }
-
-        $q->orderByDesc('id');
-
-        return response()->json($q->paginate(20));
-    }
-
-    public function staff()
-    {
-        return response()->json(
-            User::query()
-                ->whereIn('role', ['staff','admin'])
-                ->orderBy('name')
-                ->get(['id','name','email','role'])
-        );
+        return User::orderByDesc('id')->paginate(20);
     }
 
     public function updateRole(Request $request, User $user)
     {
         $data = $request->validate([
-            'role' => 'required|in:client,staff,admin',
+            'role' => ['required', 'in:client,staff,admin'],
         ]);
 
-        $user->role = $data['role'];
-        $user->save();
+        $user->update(['role' => $data['role']]);
 
-        return response()->json($user);
+        return response()->json(['ok' => true, 'user' => $user]);
     }
+
+    public function staff()
+    {
+        return User::where('role', 'staff')->get();
+    }
+
+    // 🔥 Новый метод — удаление пользователя
+    public function destroy(User $user, Request $request)
+    {
+        // запретим удалять себя
+        if ($request->user() && $request->user()->id === $user->id) {
+            return response()->json(['message' => 'Нельзя удалить свой аккаунт'], 422);
+        }
+        $user->delete();
+        return response()->json(['ok' => true]);
+    }
+
 }

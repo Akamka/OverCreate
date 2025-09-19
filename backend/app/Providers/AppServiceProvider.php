@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Auth\Notifications\ResetPassword;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,10 +14,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // В dev-окружении снимем защиту от mass-assignment,
-        // чтобы не упереться в кэш/автозагрузку.
-        if (config('app.env') !== 'production') {
-            Model::unguard();
-        }
+        // Генерим ссылку на форму сброса пароля во фронте
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            $front = rtrim(env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
+            $email = urlencode($notifiable->getEmailForPasswordReset());
+            return "{$front}/reset-password?token={$token}&email={$email}";
+        });
     }
 }

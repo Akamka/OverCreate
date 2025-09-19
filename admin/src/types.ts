@@ -28,9 +28,10 @@ export type User = {
   name: string;
   email: string;
   role: 'client' | 'staff' | 'admin';
+  email_verified_at: string | null;   // ← добавили
   created_at?: string;
-  updated_at?: string;
 };
+
 
 export type Project = {
   id: number;

@@ -3,7 +3,19 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+// тот же базовый URL, что и в других местах
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api';
+
+type RegisterResponse = {
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    email_verified_at?: string | null;
+  };
+  mustVerify?: boolean;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,18 +44,35 @@ export default function RegisterPage() {
       });
 
       if (!res.ok) {
-        // постараемся вытащить текст ошибки от API
-        const txt = await res.text();
-        throw new Error(txt || `HTTP ${res.status}`);
+        let msg = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          msg = data?.message || msg;
+        } catch {
+          const txt = await res.text();
+          if (txt) msg = txt;
+        }
+        throw new Error(msg);
       }
 
-      const json = await res.json() as { token: string; user: { id: number; name: string } };
-      // сохраняем токен и в личный кабинет
+      const json = (await res.json()) as RegisterResponse;
+
+      // сохраняем токен (можно заменить на ваш setToken, если используете общий хелпер)
       localStorage.setItem('token', json.token);
-      router.replace('/dashboard');
+
+      // нужно ли подтверждение e-mail?
+      const needsVerify =
+        json.mustVerify === true ||
+        json.user?.email_verified_at == null;
+
+      router.replace(needsVerify ? '/verify-email' : '/dashboard');
     } catch (err) {
-      const msg = (err as Error).message;
-      setError(msg.includes('email') ? 'Email уже занят' : 'Не удалось зарегистрироваться');
+      const msg = (err as Error).message || '';
+      setError(
+        /email.*(taken|exists|unique)/i.test(msg)
+          ? 'Email уже занят'
+          : 'Не удалось зарегистрироваться'
+      );
       console.error('[register]', err);
     } finally {
       setLoading(false);
@@ -69,6 +98,7 @@ export default function RegisterPage() {
           required
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
+          autoComplete="email"
         />
         <input
           className="w-full border rounded-lg px-3 py-2"
@@ -78,6 +108,7 @@ export default function RegisterPage() {
           minLength={6}
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
+          autoComplete="new-password"
         />
         <input
           className="w-full border rounded-lg px-3 py-2"
@@ -87,11 +118,10 @@ export default function RegisterPage() {
           minLength={6}
           value={form.password_confirmation}
           onChange={(e) => setForm({ ...form, password_confirmation: e.target.value })}
+          autoComplete="new-password"
         />
 
-        {error && (
-          <div className="text-sm text-red-600">{error}</div>
-        )}
+        {error && <div className="text-sm text-red-600">{error}</div>}
 
         <button
           type="submit"

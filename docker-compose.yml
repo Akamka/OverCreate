@@ -52,5 +52,14 @@ services:
       SOKETI_DEFAULT_APP_ENABLE_CLIENT_MESSAGES: "true"
     restart: unless-stopped
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: overcreate-mailpit
+    ports:
+      - "8025:8025"  # веб-интерфейс
+      - "1025:1025"  # SMTP
+    restart: unless-stopped
+
+
 volumes:
   mysql-data:

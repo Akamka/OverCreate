@@ -9,10 +9,6 @@ use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
-    /**
-     * POST /api/auth/register
-     * Регистрация клиента + мгновенный вход (Sanctum token)
-     */
     public function register(Request $request)
     {
         $data = $request->validate([
@@ -25,20 +21,22 @@ class AuthController extends Controller
             'name'     => $data['name'],
             'email'    => $data['email'],
             'password' => Hash::make($data['password']),
-            'role'     => 'client', // дефолтная роль
+            'role'     => 'client',
         ]);
 
+        // выдаём токен (чтобы пользователь мог попасть на /verify-email и нажимать "отправить ещё раз")
         $token = $user->createToken('auth')->plainTextToken;
 
+        // сразу отправляем письмо подтверждения
+        $user->sendEmailVerificationNotification();
+
         return response()->json([
-            'token' => $token,
-            'user'  => $user,
+            'token'       => $token,
+            'user'        => $user,
+            'mustVerify'  => is_null($user->email_verified_at),
         ], 201);
     }
 
-    /**
-     * POST /api/auth/login
-     */
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -57,24 +55,18 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'user'  => $user,
+            'mustVerify' => is_null($user->email_verified_at),
         ]);
     }
 
-    /**
-     * GET /api/me (auth:sanctum)
-     */
     public function me(Request $request)
     {
         return $request->user();
     }
 
-    /**
-     * POST /api/auth/logout (auth:sanctum)
-     */
     public function logout(Request $request)
     {
         $request->user()?->currentAccessToken()?->delete();
-
         return response()->json(['ok' => true]);
     }
 }

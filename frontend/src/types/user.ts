@@ -1,8 +1,11 @@
-export type Role = 'client' | 'staff' | 'admin';
-
 export type User = {
   id: number;
   name: string;
   email: string;
-  role: Role;
+  role: 'client' | 'staff' | 'admin';
+  created_at?: string;
+  updated_at?: string;
+
+  // 🔥 добавляем поле для статуса верификации
+  email_verified_at?: string | null;
 };
