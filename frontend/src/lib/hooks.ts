@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { apiGet, apiSend, getToken } from './api';
+import { apiGet, apiSend, apiSendForm, getToken } from './api';
 import { getEcho } from './realtime';
 
 import type { User } from '@/types/user';
@@ -66,17 +66,23 @@ export function useProject(id: number | undefined) {
 
 /** Сообщения + realtime (ждём projectId И токен, иначе не подписываемся/не грузим) */
 export function useMessages(projectId: string | null | undefined) {
-  const token = getToken();
-  const key = projectId && token ? [`/projects/${projectId}/messages`, token] : null;
+  const key = projectId ? `/projects/${projectId}/messages` : null;
+  const { data, mutate } = useSWR<Message[]>(key, apiGet);
 
-  const { data, mutate } = useSWR<Message[]>(key, ([p]) => apiGet<Message[]>(p), {
-    shouldRetryOnError: false,
-    revalidateOnFocus: false,
-  });
-
-  async function send(body: string) {
+  async function send(body: string, files?: File[]) {
     if (!projectId) return;
-    const msg = await apiSend<Message>(`/projects/${projectId}/messages`, 'POST', { body });
+
+    if (!files || files.length === 0) {
+      const msg = await apiSend<Message>(`/projects/${projectId}/messages`, 'POST', { body });
+      await mutate([...(data ?? []), msg], { revalidate: false });
+      return;
+    }
+
+    const form = new FormData();
+    if (body?.trim()) form.append('body', body.trim());
+    files.forEach((f) => form.append('files[]', f));
+
+    const msg = await apiSendForm<Message>(`/projects/${projectId}/messages`, form, 'POST');
     await mutate([...(data ?? []), msg], { revalidate: false });
   }
 
@@ -84,8 +90,8 @@ export function useMessages(projectId: string | null | undefined) {
     if (!projectId) return;
     const echo = getEcho();
     if (!echo) return;
-
     const channel = echo.channel(`project.${projectId}`);
+
     const handler = (e: { message: Message }) => {
       mutate([...(data ?? []), e.message], { revalidate: false });
     };

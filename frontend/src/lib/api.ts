@@ -84,7 +84,6 @@ async function handleResponse<T>(res: Response): Promise<T> {
         throw err;
       }
     } catch (e) {
-      // если парсинг ответа тоже упал
       if (e instanceof Error) throw e as HttpError;
       const err: HttpError = new Error(msg);
       err.status = res.status;
@@ -121,6 +120,31 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
   });
   return handleResponse<T>(res);
 }
+
+/** multipart/form-data с авторизацией */
+export async function apiSendForm<T>(
+  path: string,
+  form: FormData,
+  method: 'POST' | 'PUT' | 'PATCH' = 'POST'
+): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...authHeader(),   // Bearer токен обязателен
+    },
+    body: form,
+  });
+  if (!res.ok) {
+    // полезнее увидеть код ошибки
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${text}`.trim());
+  }
+  return res.json();
+}
+
+
+
 
 /* ---------- публичные запросы ---------- */
 
