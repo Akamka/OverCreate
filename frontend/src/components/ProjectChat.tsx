@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useRef, useState, useEffect, useCallback, FormEvent } from 'react';
+import { useRef, useState, useEffect, FormEvent, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { Howl } from 'howler';
 
@@ -11,44 +11,41 @@ type Props = {
   messages: Message[];
   onSend: (text: string, files?: File[]) => Promise<void>;
   meId?: number;
+
+  /** Есть ли ещё старые сообщения на сервере */
+  hasMore?: boolean;
+  /** Запросить старые сообщения «до» firstId и prepend-нуть их в messages */
+  onLoadOlder?: (beforeId: number) => Promise<void>;
 };
 
 const ding = new Howl({ src: ['/ding.mp3'] });
 
-/* ---------- утилиты (без any) ---------- */
+type GalleryCtx = { items: Attachment[]; index: number };
 
-function getSenderId(m: Message): string | number | null {
-  // максимально терпим к разным формам
-  if (m.sender && typeof m.sender === 'object' && 'id' in m.sender) {
-    const id = (m.sender as { id?: string | number | null }).id;
-    if (typeof id === 'string' || typeof id === 'number') return id;
-  }
-  // возможные «плоские» поля
-  const candidates = [
-    (m as unknown as Record<string, unknown>).sender_id,
-    (m as unknown as Record<string, unknown>).user_id,
-  ];
-  for (const v of candidates) {
-    if (typeof v === 'string' || typeof v === 'number') return v;
-  }
+/** Безопасно вытащить id отправителя: бэки бывают разные :) */
+function getSenderId(m: Message): number | string | null {
+  // самый частый случай
+  const fromSender = (m as unknown as { sender?: { id?: number | string } }).sender?.id;
+  if (fromSender !== undefined && fromSender !== null) return fromSender;
+
+  // иногда кладут плоско
+  const fromFlat = (m as unknown as { sender_id?: number | string }).sender_id;
+  if (fromFlat !== undefined && fromFlat !== null) return fromFlat;
+
+  // иногда явно проставляют флаг владельца
+  const isMine = (m as unknown as { isMine?: boolean }).isMine;
+  if (isMine) return '__me__';
+
   return null;
 }
 
-function isMineMessage(m: Message, meId?: number): boolean {
-  if (!meId) return Boolean((m as unknown as Record<string, unknown>).isMine);
-  const sid = getSenderId(m);
-  return sid !== null && String(sid) === String(meId);
-}
-
-/** Контекст галереи (внутри одного сообщения) */
-type GalleryCtx = {
-  items: Attachment[];
-  index: number;
-};
-
-/* ---------- основной компонент ---------- */
-
-export default function ProjectChat({ messages, onSend, meId }: Props) {
+export default function ProjectChat({
+  messages,
+  onSend,
+  meId,
+  hasMore = false,
+  onLoadOlder,
+}: Props) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [atBottom, setAtBottom] = useState(true);
@@ -57,13 +54,18 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
 
-  // прокрутка в конец
+  // локальный флаг, чтобы не инициировать несколько загрузок подряд
+  const isLoadingOlder = useRef(false);
+
+  /* ---------- скролл ---------- */
+
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
-  // следим за положением скролла
+  // положение скролла — чтобы понимать, когда показывать кнопку «Вниз»
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -78,14 +80,12 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // перехват колёсика — скроллится только чат
+  // перехват колёсика — чтобы не прокручивалась страница вне чата
   const onWheelCapture = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     const el = scrollerRef.current;
     if (!el) return;
-
     const atTop = el.scrollTop <= 0;
     const atEnd = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
-
     if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atEnd)) {
       e.preventDefault();
       el.scrollTop += e.deltaY;
@@ -93,21 +93,86 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
     e.stopPropagation();
   }, []);
 
-  // новые сообщения — звук + автоскролл
+  // звук + автоскролл (если внизу)
   useEffect(() => {
     if (messages.length) {
-      try { ding.play(); } catch { /* может быть заблокировано до взаимодействия */ }
+      try {
+        ding.play();
+      } catch {
+        // браузер мог запретить до первого взаимодействия — ок
+      }
     }
     if (atBottom) scrollToBottom();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // при первом монтировании — вниз
+  // первый рендер — вниз
   useEffect(() => {
     scrollToBottom(false);
   }, [scrollToBottom]);
 
-  // отправка
+  /* ---------- подгрузка вверх ---------- */
+
+  const canLoadOlder = useMemo(
+    () => Boolean(onLoadOlder) && hasMore && messages.length > 0,
+    [onLoadOlder, hasMore, messages.length]
+  );
+
+  const loadOlder = useCallback(async () => {
+    if (!canLoadOlder || isLoadingOlder.current) return;
+
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    isLoadingOlder.current = true;
+
+    // запоминаем текущую позицию скролла, чтобы после prepend-а не «прыгнуло»
+    const prevScrollTop = el.scrollTop;
+    const prevScrollHeight = el.scrollHeight;
+
+    const firstId = messages[0]?.id as number; // предполагаем numeric id (подправь, если у тебя string)
+    try {
+      await onLoadOlder?.(firstId);
+    } finally {
+      // ждём, пока React дорисует DOM с новыми сообщениями
+      requestAnimationFrame(() => {
+        const newScrollHeight = el.scrollHeight;
+        // сохраняем видимую позицию: двигаем ровно на прирост высоты
+        el.scrollTop = newScrollHeight - prevScrollHeight + prevScrollTop;
+        isLoadingOlder.current = false;
+      });
+    }
+  }, [canLoadOlder, messages, onLoadOlder]);
+
+  // триггерим загрузку, когда верхний «сторож» попадает в видимость
+  useEffect(() => {
+    if (!canLoadOlder) return;
+
+    const el = scrollerRef.current;
+    const sentinel = topSentinelRef.current;
+    if (!el || !sentinel) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          // небольшая «защита от дребезга»: грузим один раз за наблюдение
+          loadOlder();
+        }
+      },
+      {
+        root: el,
+        rootMargin: '200px 0px 0px 0px', // начнём подгружать чуть раньше, чем дошли до края
+        threshold: 0,
+      }
+    );
+
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [canLoadOlder, loadOlder]);
+
+  /* ---------- отправка ---------- */
+
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const body = text.trim();
@@ -121,8 +186,11 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
   }
 
   function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    setFiles(Array.from(e.target.files ?? []));
+    const list = Array.from(e.target.files ?? []);
+    setFiles(list);
   }
+
+  /* ---------- UI ---------- */
 
   return (
     <div className="rounded-2xl p-0 bg-white/70 shadow border overflow-hidden">
@@ -138,9 +206,30 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
         onWheel={(e) => e.stopPropagation()}
         className="h-[480px] md:h-[560px] overflow-y-auto overscroll-contain px-3 py-4 bg-[radial-gradient(closest-side,rgba(255,255,255,0.85),rgba(255,255,255,0.6))]"
       >
+        {/* sentinel для IntersectionObserver */}
+        <div ref={topSentinelRef} />
+
+        {/* Кнопка/индикатор ручной подгрузки (на всякий случай) */}
+        {canLoadOlder && (
+          <div className="mb-2 flex items-center justify-center">
+            <button
+              disabled={isLoadingOlder.current}
+              onClick={loadOlder}
+              className="text-xs px-3 py-1.5 rounded-full border bg-white hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              {isLoadingOlder.current ? 'Загружаю…' : 'Показать ещё ↑'}
+            </button>
+          </div>
+        )}
+
         <div className="w-full space-y-3">
           {messages.map((m) => {
-            const mine = isMineMessage(m, meId);
+            const sid = getSenderId(m);
+            const mine =
+              (sid !== null && String(sid) === String(meId)) ||
+              (sid === '__me__') ||
+              ((m as unknown as { isMine?: boolean }).isMine === true);
+
             const attachments = m.attachments ?? [];
             const gallery = attachments.filter((a) => a.type === 'image');
 
@@ -168,30 +257,27 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
                   ) : null}
 
                   {attachments.length > 0 && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {attachments.map((a, idx) => {
-                        // если сообщение моё и количество вложений нечётное — последний уедет вправо
-                        const odd = attachments.length % 2 === 1;
-                        const isLast = idx === attachments.length - 1;
-                        const colFix = mine && odd && isLast ? 'sm:col-start-2' : '';
-
-                        return (
-                          <AttachmentView
-                            key={a.id}
-                            a={a}
-                            mine={mine}
-                            className={colFix}
-                            onPreview={
-                              a.type === 'image'
-                                ? () => {
-                                    const i = gallery.findIndex((g) => g.id === a.id);
-                                    setPreview({ items: gallery, index: Math.max(i, 0) });
-                                  }
-                                : undefined
-                            }
-                          />
-                        );
-                      })}
+                    <div
+                      className={[
+                        'mt-2 grid gap-2',
+                        attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1',
+                      ].join(' ')}
+                    >
+                      {attachments.map((a) => (
+                        <AttachmentView
+                          key={a.id}
+                          a={a}
+                          mine={mine}
+                          onPreview={
+                            a.type === 'image'
+                              ? () => {
+                                  const idx = gallery.findIndex((g) => g.id === a.id);
+                                  setPreview({ items: gallery, index: Math.max(idx, 0) });
+                                }
+                              : undefined
+                          }
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -203,7 +289,7 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
         </div>
       </div>
 
-      {/* Кнопка «Вниз» */}
+      {/* Кнопка «Вниз», если ушли наверх */}
       {!atBottom && (
         <div className="px-4 py-2">
           <button
@@ -219,8 +305,8 @@ export default function ProjectChat({ messages, onSend, meId }: Props) {
       <form className="p-3 border-t bg-white/80 backdrop-blur" onSubmit={submit}>
         {files.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2 text-xs text-gray-600">
-            {files.map((f) => (
-              <span key={f.name} className="px-2 py-1 rounded-full bg-gray-100 border">
+            {files.map((f, i) => (
+              <span key={i} className="px-2 py-1 rounded-full bg-gray-100 border">
                 {f.name}
               </span>
             ))}
@@ -289,12 +375,10 @@ function AttachmentView({
   a,
   mine,
   onPreview,
-  className = '',
 }: {
   a: Attachment;
   mine?: boolean;
   onPreview?: () => void;
-  className?: string;
 }) {
   if (a.type === 'image') {
     const w = a.width ?? 1200;
@@ -307,20 +391,19 @@ function AttachmentView({
         className={[
           'relative w-full overflow-hidden rounded-xl border focus:outline-none focus:ring-2 ring-black/20 group',
           mine ? 'justify-self-end' : 'justify-self-start',
-          className,
         ].join(' ')}
         title={a.original_name ?? 'Открыть'}
       >
-        <Image
-          src={a.url}
-          alt={a.original_name ?? ''}
-          width={w}
-          height={h}
-          sizes="(max-width: 640px) 100vw, 50vw"
-          className="h-auto w-full object-cover transition group-hover:brightness-95 select-none"
-          draggable={false}
-          priority={false}
-        />
+      <Image
+        src={a.url}
+        alt={a.original_name ?? ''}
+        width={w}
+        height={h}
+        sizes="(max-width: 640px) 100vw, 50vw"
+        className="w-full h-auto max-h-60 object-cover rounded-xl transition group-hover:brightness-95 select-none"
+        draggable={false}
+      />
+
         <span className="absolute right-2 bottom-2 px-2 py-0.5 text-[10px] rounded bg-black/60 text-white">
           Открыть
         </span>
@@ -330,7 +413,7 @@ function AttachmentView({
 
   if (a.type === 'audio') {
     return (
-      <div className={['w-full', mine ? 'justify-self-end' : 'justify-self-start', className].join(' ')}>
+      <div className={mine ? 'justify-self-end w-full' : 'w-full'}>
         <audio controls src={a.url} className="w-full" />
       </div>
     );
@@ -338,13 +421,7 @@ function AttachmentView({
 
   if (a.type === 'video') {
     return (
-      <div
-        className={[
-          'rounded-xl border overflow-hidden w-full',
-          mine ? 'justify-self-end' : 'justify-self-start',
-          className,
-        ].join(' ')}
-      >
+      <div className={['rounded-xl border overflow-hidden w-full', mine ? 'justify-self-end' : ''].join(' ')}>
         <video controls src={a.url} className="w-full max-h-56" />
       </div>
     );
@@ -358,7 +435,6 @@ function AttachmentView({
       className={[
         'block px-3 py-2 rounded-xl bg-white border text-sm truncate hover:bg-gray-50 max-w-full',
         mine ? 'justify-self-end text-right' : 'justify-self-start',
-        className,
       ].join(' ')}
       title={a.original_name ?? 'Файл'}
     >
@@ -400,7 +476,6 @@ function Lightbox({
       className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex flex-col"
       onClick={onClose}
     >
-      {/* верхняя панель */}
       <div className="flex items-center gap-2 p-3 text-white/90">
         <span className="text-sm truncate">{cur.original_name ?? 'Изображение'}</span>
         <span className="ml-auto text-xs opacity-70">
@@ -418,7 +493,6 @@ function Lightbox({
         </button>
       </div>
 
-      {/* просмотр */}
       <div
         className="flex-1 flex items-center justify-center px-4 pb-6"
         onClick={(e) => e.stopPropagation()}
@@ -436,7 +510,6 @@ function Lightbox({
         </div>
       </div>
 
-      {/* стрелки */}
       {items.length > 1 && (
         <div className="pointer-events-none absolute inset-y-0 w-full flex items-center justify-between px-2">
           <button
