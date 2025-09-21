@@ -2,11 +2,23 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { useMe, useProjects } from '@/lib/hooks';
 import { apiSend, clearToken } from '@/lib/api';
 import { useHydrated } from '@/lib/useHydrated';
+
+/* -------- helpers: формат даты и дни до дедлайна -------- */
+function formatDate(d: Date) {
+  return d.toLocaleDateString('ru-RU', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
+function daysLeft(due: Date) {
+  return Math.max(0, Math.ceil((due.getTime() - Date.now()) / 86_400_000));
+}
 
 function ProgressMini({ value }: { value: number }) {
   const v = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
@@ -19,13 +31,12 @@ function ProgressMini({ value }: { value: number }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const hydrated = useHydrated();             // ← ждём, пока появится доступ к storage
+  const hydrated = useHydrated();
   const { user, unauthorized, error: meError, isLoading: meLoading } = useMe();
   const { projects, error: prError, isLoading: prLoading } = useProjects();
 
   const [logoutLoading, setLogoutLoading] = useState(false);
 
-  // Пока не гидратировались — отрендерим «скелет», чтобы у сервера и клиента была одна разметка
   if (!hydrated) {
     return (
       <div className="max-w-5xl mx-auto p-6 space-y-6">
@@ -39,10 +50,10 @@ export default function DashboardPage() {
     try {
       await apiSend('/auth/logout', 'POST');
     } catch {
-      /* игнор */
+      /* ignore */
     } finally {
       clearToken();
-      router.replace('/'); // на главную
+      router.replace('/');
     }
   }
 
@@ -148,31 +159,63 @@ export default function DashboardPage() {
 
           {!!projects.length && (
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {projects.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/projects/${p.id}`}
-                  className="block rounded-xl border border-gray-200 p-4 hover:shadow-md transition"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{p.title}</div>
-                      {p.description && (
-                        <div className="text-sm text-gray-600 line-clamp-2 mt-0.5">
-                          {p.description}
-                        </div>
-                      )}
+              {projects.map((p) => {
+                /* ------ вычисляем даты для карточки ------ */
+                const start = p.start_at ? new Date(p.start_at) : undefined;
+                const due = p.due_at ? new Date(p.due_at) : undefined;
+                const overdue = !!(due && due.getTime() < Date.now());
+
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/projects/${p.id}`}
+                    className="block rounded-xl border border-gray-200 p-4 hover:shadow-md transition"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">{p.title}</div>
+                        {p.description && (
+                          <div className="text-sm text-gray-600 line-clamp-2 mt-0.5">
+                            {p.description}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 shrink-0">
+                        {p.status}
+                      </div>
                     </div>
-                    <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 shrink-0">
-                      {p.status}
+
+                    <ProgressMini value={p.progress ?? 0} />
+
+                    {/* -------- 📅 Дедлайн -------- */}
+                    {(start || due) && (
+                      <div className="mt-2 text-xs">
+                        <span className="text-gray-500">📅 Дедлайн: </span>
+                        <span className="font-medium">
+                          {start ? formatDate(start) : '—'} —{' '}
+                          <span className={overdue ? 'text-red-600' : 'text-emerald-700'}>
+                            {due ? formatDate(due) : 'не задан'}
+                          </span>
+                        </span>
+                        {overdue && (
+                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700">
+                            просрочен
+                          </span>
+                        )}
+                        {!overdue && due && (
+                          <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                            осталось {daysLeft(due)} дн.
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-1 text-xs text-gray-500">
+                      Исполнитель: {p.assignee?.name ?? '—'}
                     </div>
-                  </div>
-                  <ProgressMini value={p.progress ?? 0} />
-                  <div className="mt-1 text-xs text-gray-500">
-                    Исполнитель: {p.assignee?.name ?? '—'}
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
