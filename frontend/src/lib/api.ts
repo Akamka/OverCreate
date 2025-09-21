@@ -166,3 +166,9 @@ export async function fetchPortfolioByService(
   }
   return (await res.json()) as Paginated<Portfolio>;
 }
+
+
+export async function fetchPortfolioItem(id: number) {
+  return apiGet<PortfolioItem>(`/portfolio/${id}`);
+}
+

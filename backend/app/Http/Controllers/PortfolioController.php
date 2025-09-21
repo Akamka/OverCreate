@@ -33,7 +33,7 @@ class PortfolioController extends Controller
             'gallery.*' => 'nullable|url',
 
             // файлы:
-            'cover' => 'nullable|file|mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/webm|max:102400',
+            'cover' => 'nullable|file|mimetypes:image/jpeg,image/png,image/webp|max:102400',
             'gallery_files' => 'nullable|array',
             'gallery_files.*' => 'file|mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/webm|max:102400',
 
@@ -100,7 +100,7 @@ class PortfolioController extends Controller
             'gallery' => 'nullable|array',
             'gallery.*' => 'nullable|url',
 
-            'cover' => 'nullable|file|mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/webm|max:102400',
+            'cover' => 'nullable|file|mimetypes:image/jpeg,image/png,image/webp|max:102400',
             'gallery_files' => 'nullable|array',
             'gallery_files.*' => 'file|mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/webm|max:102400',
 

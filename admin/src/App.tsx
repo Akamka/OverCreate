@@ -3,8 +3,9 @@ import TokenGate from "./components/TokenGate";
 import ContactsPage from "./pages/Contacts";
 import UsersPage from "./pages/Users";
 import ProjectsPage from "./pages/Projects";
+import PortfolioPage from "./pages/Portfolio";
 
-type Tab = "contacts" | "users" | "projects";
+type Tab = "contacts" | "users" | "projects" | "portfolio";
 
 function NavButton({ to, label, active }: { to: Tab; label: string; active: boolean }) {
   return (
@@ -56,6 +57,7 @@ export default function App() {
             <NavButton to="contacts" label="Заявки" active={tab === "contacts"} />
             <NavButton to="users" label="Пользователи" active={tab === "users"} />
             <NavButton to="projects" label="Проекты" active={tab === "projects"} />
+            <NavButton to="portfolio" label="Портфолио" active={tab === "portfolio"} />
           </nav>
         </div>
       </header>
@@ -65,6 +67,7 @@ export default function App() {
           {tab === "contacts" && <ContactsPage />}
           {tab === "users" && <UsersPage />}
           {tab === "projects" && <ProjectsPage />}
+          {tab === "portfolio" && <PortfolioPage />}
         </TokenGate>
       </main>
     </div>
