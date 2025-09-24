@@ -2,7 +2,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 
-const marquee = ['Моушн-дизайн','Графический дизайн','Веб-дизайн','Разработка','Цифровая печать','Айдентика','UI/UX','Плакаты','Постеры','Анимация']
+const marquee = ['Motion Design','Graphic Design','Web Design','Development','Digital Printing','Branding','UI/UX Design','Posters','Flyers','Animation']
 
 export default function Hero(){
   return (
@@ -14,20 +14,20 @@ export default function Hero(){
       </div>
 
       <div className="max-w-[1200px] w-full mx-auto relative z-10">
-        <p className="text-sm uppercase tracking-[.25em] text-white/60">Студия дизайна</p>
+        <p className="text-sm uppercase tracking-[.25em] text-white/60">Design & Development Studio</p>
         <h1 className="mt-3 text-5xl md:text-7xl font-semibold leading-[1.05]">
-          OverCreate — дизайн, который<br/>двигает бренд
+          OverCreate — design that<br/>drives brands
         </h1>
         <p className="mt-6 text-neutral-300 max-w-2xl">
-          Моушн, графика, веб и разработка. Мы превращаем бизнес-цели в ясные интерфейсы и живые визуальные истории.
+          Motion, graphics, web, and development. We transform business goals into clear interfaces and engaging visual stories.
         </p>
         <div className="mt-10 flex gap-4">
         <Link href="#services" className="rounded-2xl bg-white text-black px-6 py-3 font-medium hover:bg-neutral-200">
-            Смотреть услуги
+            View services
         </Link>
 
         <Link href="/services/web" className="rounded-2xl border border-white/20 px-6 py-3 font-medium hover:border-white/40">
-            Веб-дизайн
+            Web design
         </Link>
         </div>
       </div>

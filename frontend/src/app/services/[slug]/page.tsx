@@ -1,7 +1,20 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { SERVICES, type ServiceSlug, type ServiceConfig } from '@/lib/services.config';
+import {
+  SERVICES,
+  type ServiceSlug,
+  type ServiceConfig,
+} from '@/lib/services.config';
+
+import {
+  Target,
+  FlaskConical,
+  Lightbulb,
+  Cog,
+  Rocket,
+  type LucideIcon,
+} from 'lucide-react';
 
 import ServiceHero from '@/components/services/ServiceHero';
 import ServicePricing from '@/components/services/ServicePricing';
@@ -12,19 +25,19 @@ import ServiceHighlights from '@/components/services/ServiceHighlights';
 import ServiceFAQ from '@/components/services/ServiceFAQ';
 import type { CSSVars } from '@/types/ui';
 
-/* --- SSG: список страниц услуг --- */
-export function generateStaticParams(): { slug: ServiceSlug }[] {
+/* SSG for all services */
+export function generateStaticParams(): Array<{ slug: ServiceSlug }> {
   return (Object.keys(SERVICES) as ServiceSlug[]).map((slug) => ({ slug }));
 }
 
-/* --- SEO на основе конфига услуги --- */
+/* SEO */
 type PageProps = { params: { slug: ServiceSlug } };
 
 export function generateMetadata({ params }: PageProps): Metadata {
   const cfg = SERVICES[params.slug];
   if (!cfg) return {};
 
-  const title = `${cfg.title} — услуги OverCreate`;
+  const title = `${cfg.title} — OverCreate Services`;
   const description = cfg.desc;
 
   return {
@@ -33,30 +46,34 @@ export function generateMetadata({ params }: PageProps): Metadata {
     openGraph: {
       title,
       description,
-      type: 'website',
       url: `/services/${params.slug}`,
+      type: 'website',
       siteName: 'OverCreate',
     },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
+    twitter: { card: 'summary_large_image', title, description },
   };
 }
 
-/* --- Страница услуги --- */
+const PROC_ICONS: Record<string, LucideIcon> = {
+  target: Target,
+  flask: FlaskConical,
+  lightbulb: Lightbulb,
+  cog: Cog,
+  rocket: Rocket,
+};
+
+/* Page */
 export default function ServicePage({ params }: PageProps) {
   const cfg: ServiceConfig | undefined = SERVICES[params.slug];
   if (!cfg) notFound();
 
-  // Глобальные переменные акцента на странице
+  // красим всю страницу акцентами услуги
   const vars: CSSVars = { '--acc1': cfg.acc1.join(' '), '--acc2': cfg.acc2.join(' ') };
 
   return (
-    <main className="relative" style={vars}>
-      {/* HERO со встроенным ServiceTheme */}
+    <main key={`service-${params.slug}`} className="relative" style={vars}>
       <ServiceHero
+        key={`hero-${params.slug}-${cfg.acc1.join('_')}-${cfg.acc2.join('_')}`}
         slug={params.slug}
         title={cfg.title}
         desc={cfg.desc}
@@ -64,22 +81,41 @@ export default function ServicePage({ params }: PageProps) {
         acc2={cfg.acc2}
       />
 
-      {/* Акцентные хайлайты — «что получаете» */}
-      <ServiceHighlights accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+      <ServiceHighlights
+        accentFrom={cfg.acc1}
+        accentTo={cfg.acc2}
+        items={cfg.highlights}
+        title={cfg.sectionTitles?.highlightsTitle ?? 'What you get'}
+        subtitle={cfg.sectionTitles?.highlightsSubtitle ?? 'Value that compounds'}
+      />
 
-      {/* Стоимость */}
-      <ServicePricing pricing={cfg.pricing} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+      <ServicePricing
+        pricing={cfg.pricing}
+        accentFrom={cfg.acc1}
+        accentTo={cfg.acc2}
+        title={cfg.sectionTitles?.pricingTitle ?? 'Pricing'}
+        subtitle={cfg.sectionTitles?.pricingSubtitle ?? 'Transparent packages for your goals'}
+      />
 
-      {/* Процесс */}
-      <ServiceProcess accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+      <ServiceProcess
+        accentFrom={cfg.acc1}
+        accentTo={cfg.acc2}
+        steps={cfg.process}                 // ← тут icon – строка из конфига
+        title={cfg.sectionTitles?.processTitle ?? 'How we work'}
+      />
 
-      {/* Портфолио */}
+
+
+
       <ServicePortfolio service={params.slug} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
 
-      {/* FAQ */}
-      <ServiceFAQ accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+      <ServiceFAQ
+        accentFrom={cfg.acc1}
+        accentTo={cfg.acc2}
+        items={cfg.faq}
+        title={cfg.sectionTitles?.faqTitle ?? 'Frequently asked questions'}
+      />
 
-      {/* CTA — форма, окрашенная в акцент */}
       <ServiceCTA service={params.slug} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
     </main>
   );

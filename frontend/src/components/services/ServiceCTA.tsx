@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { CSSVars, RGB } from '@/types/ui';
-import type { ServiceSlug } from '@/lib/services.config'; // "motion" | "graphic" | "web" | "dev" | "printing"
+import type { ServiceSlug } from '@/lib/services.config';
 
-/* ====== конфиг API (визуал не трогаем) ====== */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
-/* ============================================ */
+/* ====== API base (unified with the rest of the app) ====== */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8080';
+/* ========================================================= */
 
 type FieldChange = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>;
 
@@ -110,7 +110,7 @@ const digitsCount = (s: string) => (s.match(/\d/g) || []).length;
 /* --------------------------------- Component -------------------------------- */
 
 export default function ServiceCTA({
-  service,           // ← теперь можно передавать params.slug, необязательно
+  service,
   accentFrom,
   accentTo,
 }: {
@@ -138,7 +138,7 @@ export default function ServiceCTA({
     window.setTimeout(() => setToast(null), 3000);
   };
 
-  /* touched state — подсветка только после взаимодействия */
+  /* touched state — highlight only after interaction */
   const [touched, setTouched] = useState({
     first: false,
     last: false,
@@ -162,43 +162,43 @@ export default function ServiceCTA({
     return { nameOk1, nameOk2, mailOk, telOk, aboutOk };
   }, [first, last, email, tel, about]);
 
-  /* error messages – только если поле тронуто и непустое */
+  /* error messages – only if touched and non-empty */
   const errors = {
     first:
       touched.first && first.trim() !== '' && !validity.nameOk1
-        ? 'Только буквы, пробел, дефис или апостроф. Минимум 2 символа.'
+        ? 'Letters, space, hyphen or apostrophe. Min 2 characters.'
         : null,
     last:
       touched.last && last.trim() !== '' && !validity.nameOk2
-        ? 'Только буквы, пробел, дефис или апостроф. Минимум 2 символа.'
+        ? 'Letters, space, hyphen or apostrophe. Min 2 characters.'
         : null,
     email:
       touched.email && email.trim() !== '' && !validity.mailOk
-        ? 'Введите корректный email, например: name@example.com'
+        ? 'Enter a valid email, e.g. name@example.com'
         : null,
     tel:
       touched.tel && tel.trim() !== '' && !validity.telOk
-        ? '7–15 цифр, можно +, пробелы, скобки и дефисы'
+        ? '7–15 digits, +, spaces, brackets and dashes allowed'
         : null,
     about:
       touched.about && about.trim() !== '' && !validity.aboutOk
-        ? 'Опишите задачу минимум в 10 символов'
+        ? 'Describe the task in at least 10 characters'
         : null,
   };
 
-  /* progress 0..1 — доходит до 1 при полностью валидной форме */
+  /* progress 0..1 */
   const progress = useMemo(() => {
     const list = Object.values(validity);
     return list.reduce((a, b) => a + (b ? 1 : 0), 0) / list.length;
   }, [validity]);
 
-  /* scroll rail (вертикальный) */
+  /* scroll rail (vertical) */
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
 
-    const TAIL_PX = 40; // прогресс-рейл заканчивается чуть раньше низа карточки
+    const TAIL_PX = 40;
     el.style.setProperty('--rail-tail', `${TAIL_PX}px`);
 
     const updateScrollProgress = () => {
@@ -254,7 +254,7 @@ export default function ServiceCTA({
       });
 
       if (!res.ok) {
-        let msg = `Ошибка отправки (${res.status})`;
+        let msg = `Submit error (${res.status})`;
         try {
           const data = (await res.json()) as unknown;
           if (typeof data === 'object' && data && 'message' in (data as Record<string, unknown>)) {
@@ -265,14 +265,13 @@ export default function ServiceCTA({
         throw new Error(msg);
       }
 
-      showToast('ok', 'Отправлено');
+      showToast('ok', 'Sent successfully');
       console.log('CTA sent OK', await res.json());
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Не удалось отправить';
-      showToast('err', 'Не удалось отправить');
+      const msg = err instanceof Error ? err.message : 'Failed to send';
+      showToast('err', 'Failed to send');
       console.error('CTA send error:', msg);
     } finally {
-      // очищаем форму после тоста
       setFirst(''); setLast(''); setEmail(''); setTel(''); setAbout('');
       setTouched({ first: false, last: false, email: false, tel: false, about: false });
     }
@@ -281,13 +280,13 @@ export default function ServiceCTA({
   return (
     <section
       id="contact"
-      className="oc-section scroll-mt-24"
+      className="oc-section scroll-mt-24 section-soft"
       style={vars as CSSProperties}
     >
       <div className="max-w-[1120px] mx-auto px-5 md:px-10">
-        <h2 className="text-3xl md:text-4xl font-semibold">Оставить заявку</h2>
+        <h2 className="text-3xl md:text-4xl font-semibold">Send a request</h2>
         <p className="mt-2 text-white/65">
-          Укажите контакты и кратко опишите задачу — ответим в течение рабочего дня.
+          Leave your contacts and briefly describe the task — we will reply within one business day.
         </p>
 
         <div
@@ -296,12 +295,12 @@ export default function ServiceCTA({
           aria-live="polite"
           style={{ '--fill': progress } as CSSProperties}
         >
-          {/* верхний прогресс заполнения */}
+          {/* top progress bar */}
           <div className="cta3-topbar" aria-hidden>
             <span className="cta3-topbar-fill" />
           </div>
 
-          {/* вертикальный прогресс-трек прокрутки */}
+          {/* vertical scroll progress rail */}
           <div className="cta3-rail" aria-hidden>
             <span className="cta3-rail-fill" />
           </div>
@@ -309,7 +308,7 @@ export default function ServiceCTA({
           <form className="cta3-grid" onSubmit={onSubmit} noValidate>
             <InputField
               id="first"
-              label="Имя"
+              label="First name"
               value={first}
               onChange={(e) => setFirst(e.target.value)}
               onBlur={makeDirty('first')}
@@ -321,7 +320,7 @@ export default function ServiceCTA({
             />
             <InputField
               id="last"
-              label="Фамилия"
+              label="Last name"
               value={last}
               onChange={(e) => setLast(e.target.value)}
               onBlur={makeDirty('last')}
@@ -346,7 +345,7 @@ export default function ServiceCTA({
             />
             <InputField
               id="tel"
-              label="Телефон"
+              label="Phone"
               value={tel}
               onChange={(e) => setTel(e.target.value)}
               onBlur={makeDirty('tel')}
@@ -360,7 +359,7 @@ export default function ServiceCTA({
             />
             <TextAreaField
               id="about"
-              label="Коротко о задаче…"
+              label="Briefly about your project…"
               value={about}
               onChange={(e) => setAbout(e.target.value)}
               onBlur={makeDirty('about')}
@@ -374,12 +373,12 @@ export default function ServiceCTA({
               <button
                 type="submit"
                 className="cta3-button"
-                aria-label={`Отправить. Заполнено ${Math.round(progress * 100)}%`}
+                aria-label={`Send. Completed ${Math.round(progress * 100)}%`}
               >
-                Отправить
+                Send
               </button>
               <span className="cta3-note">
-                Нажимая «Отправить», вы соглашаетесь с обработкой персональных данных.
+                By clicking “Send”, you agree to the processing of your personal data.
               </span>
             </div>
           </form>

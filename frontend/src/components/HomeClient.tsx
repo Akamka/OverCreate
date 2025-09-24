@@ -18,15 +18,18 @@ export default function HomeClient({ items }: { items: Portfolio[] }){
       <section id="about" className="py-20 px-6 md:px-16">
         <div className="max-w-[1200px] w-full mx-auto grid md:grid-cols-2 gap-10 items-center">
           <div>
-            <h2 className="text-3xl font-semibold">OverCreate — студия дизайна</h2>
+            <h2 className="text-3xl font-semibold">OverCreate — Design and Development Studio</h2>
             <p className="mt-4 text-neutral-300">
-              Мы ценим ясный визуальный язык и точные детали. Работаем гибко, быстро и прозрачно, не жертвуя качеством.
-              Используем современный стек: Next.js, Laravel, Docker. Публикуем проекты без боли.
+              We value clarity in visual language and precision in every detail. Flexible, fast, and transparent — never at the expense of quality. 
+              Powered by a modern stack: Next.js, Laravel, Docker.
+              Smooth project launches, zero headaches.
             </p>
             <div className="mt-8 grid grid-cols-2 gap-4 max-w-md">
               {[
-                ['6+','лет опыта'], ['120+','выпущенных макетов'],
-                ['40+','брендов'], ['∞','итераций, если нужно'],
+                ['6+','years of expertise'], 
+                ['120+','launched designs'], 
+                ['40+','brands served'], 
+                ['∞','iterations until it’s perfect'],
               ].map(([n,t])=>(
                 <div key={t} className="glass rounded-2xl p-5 text-center">
                   <div className="text-3xl font-semibold">{n}</div>

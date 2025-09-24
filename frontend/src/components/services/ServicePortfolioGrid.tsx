@@ -1,87 +1,150 @@
-'use client'
+'use client';
 
-import { useState, type CSSProperties } from 'react'
-import Image from 'next/image'
-import type { Portfolio as PortfolioItem } from '@/types/portfolio'
-import type { RGB } from '@/types/ui'
-import PortfolioModal from './PortfolioModal'
+import Image from 'next/image';
+import { useMemo, useState, type CSSProperties } from 'react';
+import clsx from 'clsx';
+import type { RGB } from '@/types/ui';
+import type { Portfolio as PortfolioItem } from '@/types/portfolio';
+import PortfolioModal from './PortfolioModal';
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080'
-const abs = (u?: string | null) =>
-  !u ? null : /^https?:\/\//i.test(u) ? u : `${BASE}${u.startsWith('/') ? '' : '/'}${u}`
+type Props = {
+  items: PortfolioItem[];
+  accentFrom: RGB;
+  accentTo: RGB;
+  className?: string;
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+const toAbs = (u?: string | null): string | null =>
+  !u ? null : /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
+
+const isVideo = (url: string) => /\.(mp4|webm|mov|avi)$/i.test(url);
+
+function pickCover(it: PortfolioItem): string | null {
+  const gallery = (it as unknown as { gallery?: string[] | null }).gallery ?? [];
+  const firstImg = Array.isArray(gallery) ? gallery.find((u) => !isVideo(u)) ?? null : null;
+
+  const candidates: Array<string | null | undefined> = [
+    (it as unknown as { cover_url?: string | null }).cover_url,
+    (it as unknown as { preview_url?: string | null }).preview_url,
+    (it as unknown as { thumbnail_url?: string | null }).thumbnail_url,
+    firstImg,
+  ];
+
+  for (const c of candidates) {
+    const abs = toAbs(c ?? null);
+    if (abs) return abs;
+  }
+  return null;
+}
+
+type Vars = CSSProperties & Record<'--acc1' | '--acc2', string>;
+type CardVars = CSSProperties & Record<'--cardW' | '--mx' | '--my', string>;
 
 export default function ServicePortfolioGrid({
   items,
   accentFrom,
   accentTo,
-}: {
-  items: PortfolioItem[]
-  accentFrom: RGB
-  accentTo: RGB
-}) {
-  const [openId, setOpenId] = useState<number | null>(null)
-    const vars: React.CSSProperties & { ['--acc1']?: string; ['--acc2']?: string } = {
-    '--acc1': accentFrom.join(' '),
-    '--acc2': accentTo.join(' '),
-}
+  className,
+}: Props) {
+  const [openId, setOpenId] = useState<number | null>(null);
 
+  const vars: Vars = useMemo(
+    () => ({
+      '--acc1': accentFrom.join(' '),
+      '--acc2': accentTo.join(' '),
+    }),
+    [accentFrom, accentTo]
+  );
 
   return (
-    <div className="max-w-[1200px] mx-auto">
-      <div className="flex items-baseline justify-between mb-6">
-        <h2 className="text-3xl font-semibold">Портфолио</h2>
-        <div className="text-white/60 text-sm">найдено: {items.length}</div>
+    <>
+      <div
+        className={clsx(
+          'pf-wrap hsnap flex gap-5 md:gap-6 overflow-x-auto px-1',
+          className
+        )}
+        style={vars}
+      >
+        {items.map((it, i) => {
+          const cover = pickCover(it);
+          const idNum =
+            typeof it.id === 'number'
+              ? it.id
+              : Number(typeof it.id === 'string' ? it.id : i);
+
+          const cardVars: CardVars = {
+            // компактнее: 2–3 в ряд
+            '--cardW': 'clamp(260px, 30vw, 420px)',
+            '--mx': '50%',
+            '--my': '50%',
+          };
+
+          const onMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
+            const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+            const nx = (e.clientX - r.left) / r.width;
+            const ny = (e.clientY - r.top) / r.height;
+            e.currentTarget.style.setProperty('--mx', `${(nx * 100).toFixed(2)}%`);
+            e.currentTarget.style.setProperty('--my', `${(ny * 100).toFixed(2)}%`);
+          };
+
+          const resetSpot: React.PointerEventHandler<HTMLDivElement> = (e) => {
+            e.currentTarget.style.setProperty('--mx', '50%');
+            e.currentTarget.style.setProperty('--my', '50%');
+          };
+
+          return (
+            <article
+              key={(it.id ?? i).toString()}
+              className="pf-card hpanel snap-center"
+              style={cardVars}
+              onPointerMove={onMove}
+              onPointerLeave={resetSpot}
+            >
+              {/* неоновая обводка */}
+              <span aria-hidden className="pf-ring" />
+
+              {/* обложка + спотлайт */}
+              <div className="pf-cover">
+                {cover ? (
+                  <Image
+                    src={cover}
+                    alt={it.title ?? 'preview'}
+                    fill
+                    sizes="(min-width:1024px) 30vw, 92vw"
+                    className="pf-img"
+                  />
+                ) : (
+                  <div className="pf-nopreview">no preview</div>
+                )}
+                <span aria-hidden className="pf-spot" />
+                {/* деликатная виньетка для читаемости подписи */}
+                <span aria-hidden className="pf-vignette" />
+              </div>
+
+              {/* подпись на самом превью */}
+              <div className="pf-meta-on">
+                <div className="min-w-0">
+                  <h3 className="pf-title">{it.title ?? 'Untitled'}</h3>
+                  {'excerpt' in it && it.excerpt ? (
+                    <p className="pf-sub">{(it.excerpt as string) || ''}</p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(idNum)}
+                  className="pf-cta"
+                  aria-label={`View “${it.title ?? 'item'}”`}
+                >
+                  View →
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
 
-      {items.length === 0 ? (
-        <div className="text-neutral-400">
-          Пока пусто. Добавьте работы в админ-панели.
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((it) => {
-            const src = abs(it.cover_url)
-            return (
-              <button
-                type="button"
-                onClick={() => setOpenId(it.id)}
-                key={it.id}
-                className="hcard text-left"
-                style={vars}
-              >
-                <div className="hcard-body p-0 overflow-hidden">
-                  <div className="relative aspect-[4/3] w-full">
-                    {src ? (
-                      <Image
-                        src={src}
-                        alt={it.title}
-                        fill
-                        sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
-                        className="object-cover"
-                        priority={false}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 grid place-items-center text-white/40">
-                        no cover
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <div className="hcard-title">{it.title}</div>
-                    {it.excerpt && (
-                      <p className="text-neutral-300 mt-1">{it.excerpt}</p>
-                    )}
-                    <div className="mt-3 hcard-cta">Смотреть →</div>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* модалка материалов */}
       <PortfolioModal id={openId} onClose={() => setOpenId(null)} />
-    </div>
-  )
+    </>
+  );
 }

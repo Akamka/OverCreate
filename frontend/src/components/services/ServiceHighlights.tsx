@@ -11,37 +11,71 @@ import {
   Rocket,
 } from 'lucide-react';
 
-type Props = { accentFrom: RGB; accentTo: RGB };
+type IconMapKey =
+  | 'workflow'
+  | 'palette'
+  | 'monitor'
+  | 'gauge'
+  | 'sparkles'
+  | 'rocket';
 
-const ITEMS = [
-  { title: 'Motion-пакеты', desc: 'Рилсы, product motion, рекламные клипы под цели', icon: Workflow },
-  { title: 'Стиль и гайд', desc: 'Градиенты, шумы, формы и ритм — единая система', icon: Palette },
-  { title: 'Адаптация', desc: 'Версии для соцсетей, сайтов и презентаций', icon: MonitorSmartphone },
-  { title: 'Скорость', desc: 'Итерации каждую неделю, демо по чекпоинтам', icon: Gauge },
-  { title: 'Тонкие детали', desc: 'Микроанимация, параллакс, шум/зерно, преломления', icon: Sparkles },
-  { title: 'Готово к продакшену', desc: 'Экспорт исходников и аккуратный хэнд-офф', icon: Rocket },
+const ICONS: Record<IconMapKey, React.ComponentType<{ size?: number }>> = {
+  workflow: Workflow,
+  palette: Palette,
+  monitor: MonitorSmartphone,
+  gauge: Gauge,
+  sparkles: Sparkles,
+  rocket: Rocket,
+};
+
+type Item = { title: string; desc: string; icon?: IconMapKey };
+
+type Props = {
+  accentFrom: RGB;
+  accentTo: RGB;
+  items?: Item[];
+  title?: string;
+  subtitle?: string;
+};
+
+const FALLBACK: Item[] = [
+  { title: 'Systematic', desc: 'Consistent visuals you can scale', icon: 'workflow' },
+  { title: 'Style', desc: 'Clean grids, colors and types', icon: 'palette' },
+  { title: 'Responsive', desc: 'Looks great on any screen', icon: 'monitor' },
+  { title: 'Fast', desc: 'We move quickly and iterate', icon: 'gauge' },
+  { title: 'Details', desc: 'Small touches that matter', icon: 'sparkles' },
+  { title: 'Handoff', desc: 'Clear sources and specs', icon: 'rocket' },
 ];
 
-export default function ServiceHighlights({ accentFrom, accentTo }: Props) {
+export default function ServiceHighlights({
+  accentFrom,
+  accentTo,
+  items,
+  title = 'What you get',
+  subtitle = 'Value that compounds',
+}: Props) {
   const vars: CSSVars = { '--acc1': accentFrom.join(' '), '--acc2': accentTo.join(' ') };
+  const list = items && items.length ? items : FALLBACK;
 
   return (
-    <section className="oc-section px-6 md:px-16" style={vars}>
+    <section className="oc-section px-6 md:px-16 section-soft" style={vars}>
+
       <div className="max-w-[1200px] mx-auto">
-        <p className="text-sm text-white/60">Что вы получаете</p>
-        <h2 className="text-3xl md:text-4xl font-semibold mt-1">Пакет на вырост</h2>
+        <p className="text-sm text-white/60">{subtitle}</p>
+        <h2 className="text-3xl md:text-4xl font-semibold mt-1">{title}</h2>
 
         <div className="hlx-grid grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-          {ITEMS.map(({ title, desc, icon: Icon }) => (
-            <Tile key={title} title={title} desc={desc} icon={<Icon size={16} />} />
-          ))}
+          {list.map(({ title: t, desc, icon }, i) => {
+            const Icon = icon ? ICONS[icon] : undefined;
+            return <Tile key={`${t}-${i}`} title={t} desc={desc} icon={Icon ? <Icon size={16} /> : null} />;
+          })}
         </div>
       </div>
     </section>
   );
 }
 
-/* ---------- интерактивная плитка ---------- */
+/* ---------- interactive tile ---------- */
 function Tile({
   title,
   desc,
@@ -85,7 +119,7 @@ function Tile({
       onPointerDown={onDown}
       tabIndex={0}
     >
-      {/* FX слой */}
+      {/* FX layer */}
       <div aria-hidden className="hlx-fx">
         <div className="hlx-spot" />
         <div className="hlx-orbit">
@@ -95,7 +129,7 @@ function Tile({
         <div key={ripKey} className="hlx-ripple" />
       </div>
 
-      {/* контент */}
+      {/* content */}
       <header className="flex items-center gap-3">
         <div className="hlx-ico">{icon}</div>
         <h3 className="font-semibold">{title}</h3>

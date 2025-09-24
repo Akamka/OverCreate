@@ -7,8 +7,8 @@ const rgb = (r:number,g:number,b:number): RGB => [r,g,b]
 const items = [
   {
     slug:'motion',
-    title:'Моушн дизайн',
-    desc:'Рилсы, анимации, product motion',
+    title:'Motion Design',
+    desc:'Reels, animations, product motion',
     // violet 500 — #8B5CF6
     acc1: rgb(139, 92, 246), acc2: rgb(139, 92, 246),
     icon: (
@@ -19,8 +19,8 @@ const items = [
   },
   {
     slug:'graphic',
-    title:'Графический дизайн',
-    desc:'Айдентика, постеры, печать',
+    title:'Graphic Design',
+    desc:'Branding, posters, printing',
     // emerald 500 — #10B981
     acc1: rgb(16, 185, 129), acc2: rgb(16, 185, 129),
     icon: (
@@ -31,8 +31,8 @@ const items = [
   },
   {
     slug:'web',
-    title:'Веб-дизайн',
-    desc:'UI/UX, лендинги, сайты',
+    title:'Web Design',
+    desc:'UI/UX, landing pages, websites',
     // blue 500 — #3B82F6
     acc1: rgb(59, 130, 246), acc2: rgb(59, 130, 246),
     icon: (
@@ -43,7 +43,7 @@ const items = [
   },
   {
     slug:'dev',
-    title:'Разработка',
+    title:'Development',
     desc:'Next.js, Laravel, интеграции',
     // amber 500 — #F59E0B (тёплый оранжевый)
     acc1: rgb(245, 158, 11), acc2: rgb(245, 158, 11),
@@ -55,8 +55,8 @@ const items = [
   },
   {
     slug:'printing',
-    title:'Цифровая печать',
-    desc:'Визитки, плакаты, наружка',
+    title:'Digital Printing',
+    desc:'Business cards, posters, outdoor ads',
     // pink 500 — #EC4899
     acc1: rgb(236, 72, 153), acc2: rgb(236, 72, 153),
     icon: (
@@ -83,7 +83,7 @@ export default function ServicesGrid(){
               accentTo={s.acc2}    
               icon={s.icon}
             >
-              <div className="mt-6 hcard-cta">Подробнее →</div>
+              <div className="mt-6 hcard-cta">Learn more →</div>
             </HoloCard>
           ))}
         </div>

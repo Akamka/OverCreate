@@ -1,5 +1,5 @@
 // src/components/services/ServicePricing.tsx
-import PricingCard, { PricingTier, RGB } from './PricingCard';
+import PricingCard, { type PricingTier, type RGB } from './PricingCard';
 
 type Props = {
   pricing?: PricingTier[];
@@ -12,31 +12,31 @@ type Props = {
 
 const FALLBACK: PricingTier[] = [
   {
-    name: 'Старт',
-    price: 'от $490',
-    period: 'проект',
-    features: ['1–2 концепта', 'Базовая анимация', '5–7 дней'],
+    name: 'Starter',
+    price: 'from $100',
+    period: 'project',
+    features: ['1–2 concepts', 'Basic animation', '3–7 days'],
     ctaHref: '#contact',
   },
   {
     name: 'Pro',
-    price: 'от $1200',
-    period: 'проект',
-    features: ['3–4 концепта', 'UI-система', 'Интерактив', '10–14 дней'],
+    price: 'from $200',
+    period: 'project',
+    features: ['3–4 concepts', 'UI motion system', 'Interactive details', '7–10 days'],
     popular: true,
-    note: 'Оптимально для малого/среднего бизнеса',
+    note: 'Best for small/medium businesses',
     ctaHref: '#contact',
   },
   {
     name: 'Enterprise',
-    price: 'по запросу',
-    features: ['R&D, исследование', 'Дизайн-система', 'Углубленная анимация', 'Поддержка и развитие'],
+    price: 'custom',
+    features: ['R&D', 'Design system', 'Advanced animation', 'Support & growth'],
     ctaHref: '#contact',
   },
 ];
 
 function normalizeToThree(src?: PricingTier[]): PricingTier[] {
-  const base = (src && src.length ? src : FALLBACK).slice(0, 3);
+  const base = (src?.length ? src : FALLBACK).slice(0, 3);
   if (base.length === 1) return [...base, FALLBACK[1], FALLBACK[2]];
   if (base.length === 2) return [...base, FALLBACK[2]];
   return base;
@@ -46,13 +46,13 @@ export default function ServicePricing({
   pricing,
   accentFrom,
   accentTo,
-  title = 'Стоимость',
-  subtitle = 'Прозрачные пакеты под задачи',
+  title = 'Pricing',
+  subtitle = 'Transparent packages that fit your scope',
 }: Props) {
   const tiers = normalizeToThree(pricing);
 
   return (
-    <section id="pricing" className="oc-section">
+    <section id="pricing" className="oc-section section-soft">
       <div className="max-w-[1280px] mx-auto px-5 md:px-8">
         <div className="mb-6 md:mb-8">
           <p className="text-sm text-white/50">{subtitle}</p>
@@ -66,7 +66,7 @@ export default function ServicePricing({
               tier={t}
               accentFrom={accentFrom}
               accentTo={accentTo}
-              className="min-h-[380px]"  // чуть больше, чтобы всё помещалось
+              className="min-h-[380px]"
             />
           ))}
         </div>

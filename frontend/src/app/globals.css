@@ -128,7 +128,7 @@ body{
   100%{opacity:0}
 }
 
-/* =========================
+/*! =========================
    Секции (без «полос»)
    ========================= */
 .oc-section{
@@ -142,26 +142,29 @@ body{
 /* полностью отключаем любые растушёвки, если они когда-то появятся */
 .oc-section::before, .oc-section::after{ content:none !important; display:none !important; background:none !important; }
 
-/* =========================
+/*! =========================
    Holographic Prism Cards
    ========================= */
 
 /* поддержка анимируемого угла */
-@property --ang { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 
-.hcard3d{ perspective:1000px; }
+/* 3D-контейнер */
+.hcard3d{
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
 
-/*? === Holographic Prism Cards : контейнер карточки === */
+/* карточка не должна клипать тени */
 .hcard{
   position: relative;
   border-radius: 22px;
-  --acc1: 56 189 248;
-  --acc2: 168 85 247;
+
+  /* курсор/наклон */
   --mx: 50%; --my: 50%;
   --dx: 0px; --dy: 0px;
 
-  /* было: contain: paint;  — УДАЛЕНО, иначе режет тени/блюры */
-  /* оставляем ускорители без клиппинга */
+  /* без «мыла» и клиппинга */
   transform-style: preserve-3d;
   will-change: transform;
   isolation: isolate;
@@ -169,33 +172,24 @@ body{
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 
-  /* чтобы тени могли выходить за рамки */
+  /* тени выходят наружу */
   overflow: visible;
 }
 
-/* карточка не должна клипать тени */
-.hcard{
-  position: relative;
-  border-radius: 22px;
-  --acc1: 56 189 248;
-  --acc2: 168 85 247;
-  --mx: 50%; --my: 50%;
-  --dx: 0px; --dy: 0px;
-
-  /* меньше шансов на «мигание» при пересборке слоёв */
-.hcard, .hcard3d {
+/* общие GPU-подсказки */
+.hcard,
+.hcard3d{
   backface-visibility: hidden;
-  transform: translateZ(0);     /* промоутим на GPU */
-  will-change: transform;       /* подсказываем движку */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
-/* если оставляете сканлайн/шарды, пусть не перехватывают события */
+/* декоративные слои не перехватывают события */
 .hcard-engrave,
 .hcard-shard,
 .hcard-shine,
-.hcard-scan {
+.hcard-scan{
   pointer-events: none;
-}
 
   /* !!! убрали contain: paint; чтобы не резало эффекты */
   /* contain: layout style;  — можно оставить, если нужно, но не paint */
@@ -261,7 +255,63 @@ body{
   opacity:.06; z-index:1;
 }
 
-/* ===== ПЛАВНАЯ ЦВЕТНАЯ РАМКА (OKLCH) ===== */
+
+
+/*! =========================
+   СЕКЦИОННЫЕ ТЕМЫ (градиенты)
+   ========================= */
+
+/* Motion Design (фиолетово-розовый с мягким синим) */
+.service-motion {
+  --acc1: 139 92 246;   /* violet-500 */
+  --acc2: 236 72 153;   /* pink-500 */
+  --acc3: 56 189 248;   /* sky-400 */
+}
+
+/* Graphic Design (зелёный с лаймом и бирюзой) */
+.service-graphic {
+  --acc1: 34 197 94;    /* green-500 */
+  --acc2: 132 204 22;   /* lime-500 */
+  --acc3: 45 212 191;   /* teal-400 */
+}
+
+/* Web Design (синий + голубой + фиолетовый) */
+.service-web {
+  --acc1: 59 130 246;   /* blue-500 */
+  --acc2: 56 189 248;   /* sky-400 */
+  --acc3: 168 85 247;   /* purple-500 */
+}
+
+/* Development (оранжевый с янтарным и розовым) */
+.service-dev {
+  --acc1: 249 115 22;   /* orange-500 */
+  --acc2: 234 179 8;    /* amber-400 */
+  --acc3: 236 72 153;   /* pink-500 */
+}
+
+/* Digital Printing (розовый + красный + фиолетовый) */
+.service-printing {
+  --acc1: 236 72 153;   /* pink-500 */
+  --acc2: 239 68 68;    /* red-500 */
+  --acc3: 168 85 247;   /* purple-500 */
+}
+
+
+/*! =========================
+   Поддержка 3-цветных градиентов
+   ========================= */
+.bg-acc-grad {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--acc1)),
+    rgb(var(--acc2)),
+    rgb(var(--acc3, var(--acc2)))
+  );
+}
+
+
+
+/*! ===== ПЛАВНАЯ ЦВЕТНАЯ РАМКА (OKLCH) ===== */
 @supports (background: conic-gradient(in oklch, red, blue)) {
   .hcard::before{
     content:"";
@@ -947,6 +997,78 @@ body{
 
 
 
+/* HERO / CTA кнопка (primary) – теперь 3 цвета */
+.btn-acc-primary,
+.cta3-button {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--acc1)),
+    rgb(var(--acc2)),
+    rgb(var(--acc3, var(--acc2)))
+  );
+}
+
+/* Переливающийся бейдж "Рекомендуем" — с читаемым текстом и сохранённой анимацией */
+.recommend-badge{
+  position: relative;
+  overflow: hidden;
+
+  /* фон и shimmer */
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  background-size: 200% 200%;
+  animation: shimmer 4s linear infinite;
+
+  /* текст — мягко читаемый */
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-shadow:
+    0 1px 1px rgba(0,0,0,.35),
+    0 0 8px rgba(0,0,0,.18);
+
+  /* контур/глубина бейджа */
+  border: 1px solid rgba(255,255,255,.22);
+  box-shadow:
+    0 4px 12px rgba(0,0,0,.35),
+    0 0 0 1px rgba(255,255,255,.06) inset,
+    0 0 12px color-mix(in oklch, rgb(var(--acc2)) 50%, transparent);
+
+  /* спокойнее по насыщенности */
+  filter: saturate(105%) contrast(1.02);
+
+  transition:
+    transform .3s ease,
+    box-shadow .3s ease,
+    filter .2s ease;
+}
+
+.recommend-badge:hover{
+  filter: saturate(112%) contrast(1.05);
+  box-shadow:
+    0 6px 16px rgba(0,0,0,.38),
+    0 0 0 1px rgba(255,255,255,.08) inset,
+    0 0 14px rgb(var(--acc2) / .45);
+}
+
+/* если у тебя ещё нет такого блока — добавь */
+@keyframes shimmer{
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+
+
+.hlx-ico{
+  /* было: linear-gradient(135deg, acc1/20, acc2/12) */
+  background: linear-gradient(
+    135deg,
+    rgb(var(--acc1) / .20),
+    rgb(var(--acc2) / .12),
+    rgb(var(--acc3, var(--acc2)) / .10)
+  );
+}
 
 
 
@@ -1534,3 +1656,264 @@ body{
 
 /* (на всякий случай) не вводим вложенных скроллов на main */
 main { overscroll-behavior: auto; }
+
+
+
+/* =========================
+   Section Soft Gradient BG
+   ========================= */
+.section-soft {
+  position: relative;
+  isolation: isolate;        /* чтобы фон не смешивался с соседями */
+}
+
+/* нежные разнонаправленные пятна + лёгкая вуаль */
+.section-soft::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  z-index: -1;
+  pointer-events: none;
+
+  /* 3 мягких пятна на основе акцентов, c очень низкой непрозрачностью */
+  background:
+    radial-gradient(42% 38% at 18% 24%, rgb(var(--acc1) / .12), transparent 60%),
+    radial-gradient(40% 40% at 82% 22%, rgb(var(--acc2) / .10), transparent 62%),
+    radial-gradient(50% 50% at 64% 80%, rgb(var(--acc3, var(--acc2)) / .08), transparent 66%);
+  filter: blur(70px) saturate(0.9) contrast(0.98);
+  transform-origin: 50% 50%;
+  animation: section-swim 60s linear infinite;
+  opacity: .85;              /* общая «сила» фона; можно 0.7–0.9 */
+}
+
+/* еле заметный «шелк» поверх */
+.section-soft::after {
+  content: "";
+  position: absolute;
+  inset: -16%;
+  z-index: -1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    125deg,
+    rgba(255,255,255,.03) 0 2px,
+    transparent 2px 12px
+  );
+  mix-blend-mode: overlay;
+  opacity: .12;
+  animation: section-sheen 18s ease-in-out infinite alternate;
+}
+
+@keyframes section-swim {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.015); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes section-sheen {
+  0%   { transform: translate3d(-2%, -2%, 0); }
+  100% { transform: translate3d( 2%,  2%, 0); }
+}
+
+/* уважение к reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .section-soft::before,
+  .section-soft::after { animation: none !important; }
+}
+
+
+
+
+
+/*! ==== Portfolio rail (soft, 2-cards view, snap) ==== */
+.no-scrollbar::-webkit-scrollbar{ display:none; }
+.no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
+
+.pf-rail{
+  display:flex; gap:16px;
+  overflow-x:auto; overflow-y:visible;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 24px;
+  padding-inline: 4px;
+  padding-bottom: 6px;
+}
+
+.pf-card{
+  width: var(--cardW, clamp(280px, 46vw, 560px));
+  flex: 0 0 var(--cardW, clamp(280px, 46vw, 560px));
+}
+
+/* мягкие градиентные края */
+.pf-edges{ position:relative; }
+.pf-edge{
+  position:absolute; top:0; bottom:0; width:120px; z-index:10;
+  pointer-events:none; transition: opacity .25s ease;
+}
+.pf-edge-left{
+  left:0;
+  background: linear-gradient(90deg, rgba(10,10,15,.85), rgba(10,10,15,0));
+  mask: linear-gradient(90deg, #000, transparent);
+}
+.pf-edge-right{
+  right:0;
+  background: linear-gradient(270deg, rgba(10,10,15,.85), rgba(10,10,15,0));
+  mask: linear-gradient(270deg, #000, transparent);
+}
+
+/* стрелки */
+.pf-nav{
+  position:absolute; top:50%; transform: translateY(-50%);
+  z-index:20; display:grid; place-items:center;
+  width:42px; height:42px; border-radius:999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 10px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(8px);
+  transition: transform .18s ease, box-shadow .18s ease, opacity .2s ease;
+}
+.pf-nav:hover{ transform: translateY(-50%) scale(1.05); box-shadow: 0 16px 36px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.10); }
+.pf-nav-left{ left:10px; }
+.pf-nav-right{ right:10px; }
+
+.pf-nav-ico{
+  display:inline-block; font-size:22px; line-height:1;
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* чуть мягче снап */
+.pf-rail { scroll-behavior: smooth; }
+
+
+
+
+/*! === Portfolio cards (pf-*) — компактнее, с плавающей подписью ============= */
+
+@property --ang { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+@keyframes pf-spin { to { --ang:360deg; } }
+
+.pf-card{
+  position: relative;
+  width: var(--cardW);
+  border-radius: 20px;
+  isolation: isolate;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 12px 28px rgba(0,0,0,.30);
+  overflow: hidden;
+  transition: transform .22s cubic-bezier(.2,.6,.2,1), box-shadow .22s ease, border-color .22s ease;
+}
+.pf-card:hover{
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 20px 44px rgba(0,0,0,.36);
+}
+
+/* кольцо */
+.pf-ring{
+  content:"";
+  position:absolute; inset:0; padding:1.25px; border-radius:inherit; z-index:3; pointer-events:none;
+  background:
+    conic-gradient(from var(--ang,0deg) at 50% 50%,
+      rgb(var(--acc1)) 0turn,
+      color-mix(in oklch, rgb(var(--acc1)) 45%, rgb(var(--acc2)) 55%) .25turn,
+      rgb(var(--acc2)) .5turn,
+      color-mix(in oklch, rgb(var(--acc2)) 45%, rgb(var(--acc1)) 55%) .75turn,
+      rgb(var(--acc1)) 1turn);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.pf-card:hover .pf-ring{ opacity:.95; animation: pf-spin 7s linear infinite; }
+
+/* обложка */
+.pf-cover{
+  position: relative;
+  aspect-ratio: 16/10;               /* чуть ниже, чем 16/9 */
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.pf-img{
+  object-fit: cover;
+  transition: transform .45s cubic-bezier(.2,.6,.2,1), filter .3s ease;
+}
+.pf-card:hover .pf-img{ transform: scale(1.025); }
+
+/* мягкая подсветка за курсором */
+.pf-spot{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(180px 140px at var(--mx,50%) var(--my,50%), rgb(var(--acc2) / .16), transparent 60%),
+    radial-gradient(280px 220px at var(--mx,50%) var(--my,50%), rgb(var(--acc1) / .10), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: .85;
+  transition: opacity .2s ease;
+}
+
+/* затемнение снизу для читабельности */
+.pf-vignette{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(180deg, transparent 45%, rgba(0,0,0,.45) 90%);
+}
+
+/* подпись поверх превью (плавающая) */
+.pf-meta-on{
+  position:absolute; left:10px; right:10px; bottom:10px; z-index:4;
+  display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+  padding: .6rem .65rem;
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(180deg, rgba(12,12,14,.55), rgba(12,12,14,.35));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+/* текст */
+.pf-title{
+  color:#fff; font-weight:700; font-size:1rem; line-height:1.2;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.pf-sub{
+  margin-top:.1rem; font-size:.85rem; color: rgba(255,255,255,.70);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* заглушка */
+.pf-nopreview{
+  position:absolute; inset:0; display:grid; place-items:center;
+  color: rgba(255,255,255,.45);
+}
+
+/* CTA */
+.pf-cta{
+  border:0; cursor:pointer;
+  padding:.5rem .85rem; border-radius:12px;
+  font-weight:600; font-size:.9rem; color:#0b0b0c;
+  background: linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)));
+  box-shadow: 0 8px 18px rgb(0 0 0 / .28);
+  transition: transform .18s cubic-bezier(.2,.6,.2,1), box-shadow .18s ease, filter .18s ease;
+}
+.pf-cta:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgb(0 0 0 / .36);
+  filter: saturate(108%);
+}
+
+
+
+/* 3D-эффект карточек */
+.pf-rail {
+  perspective: 1200px; /* создаём сцену */
+}
+
+.pf-card {
+  transition: transform 0.35s ease;
+  transform-origin: center center;
+}
