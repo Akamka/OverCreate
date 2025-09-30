@@ -7,6 +7,7 @@ use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Api\ContactSubmissionController;
 
+
 // --- ЛК/чат (Sanctum) ---
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProjectController;
@@ -127,6 +128,14 @@ Route::prefix('admin')->middleware(\App\Http\Middleware\AdminToken::class)->grou
     // Orders
     Route::get('/orders',               [OrderController::class, 'index']);
     Route::put('/orders/{order}/read',  [OrderController::class, 'markRead']);
+
+        // Заявки: удаление, массовое удаление, смена статуса
+    Route::delete('/contact-submissions/{contactSubmission}',
+        [ContactSubmissionController::class, 'destroy']);
+    Route::delete('/contact-submissions',
+        [ContactSubmissionController::class, 'bulkDestroy']);
+    Route::patch('/contact-submissions/{contactSubmission}',
+        [ContactSubmissionController::class, 'update']);
 
     // Если нужно — админ CRUD портфолио
     Route::apiResource('portfolio', PortfolioController::class)->only(['store','update','destroy']);

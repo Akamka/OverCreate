@@ -1,3 +1,5 @@
+export type ContactStatus = 'new' | 'in_review' | 'done' | 'spam' | 'archived';
+
 export type ContactSubmission = {
   id: number;
   first_name: string;
@@ -11,6 +13,7 @@ export type ContactSubmission = {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   ip?: string | null;
+  status: ContactStatus;         // <— добавили
   created_at: string;
   updated_at?: string;
 };
