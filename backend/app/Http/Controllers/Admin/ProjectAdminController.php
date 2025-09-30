@@ -12,7 +12,12 @@ class ProjectAdminController extends Controller
     {
         $q = Project::query()
             ->with(['user:id,name,email','assignee:id,name,email,role'])
-            ->select(['id','title','description','status','progress','user_id','assignee_id','created_at']);
+            ->select([
+                'id','title','description','status','progress',
+                'user_id','assignee_id',
+                'start_at','due_at',           // ← добавили
+                'created_at'
+            ]);
 
         if ($search = trim((string) $request->query('q'))) {
             $q->where(function ($x) use ($search) {
@@ -46,6 +51,9 @@ class ProjectAdminController extends Controller
             'progress'     => 'nullable|integer|min:0|max:100',
             'user_id'      => 'required|exists:users,id',
             'assignee_id'  => 'nullable|exists:users,id',
+            // новые поля дат
+            'start_at'     => 'nullable|date',
+            'due_at'       => 'nullable|date|after_or_equal:start_at',
         ]);
 
         $data['status']   = $data['status']   ?? 'new';
@@ -68,6 +76,9 @@ class ProjectAdminController extends Controller
             'progress'     => 'nullable|integer|min:0|max:100',
             'user_id'      => 'nullable|exists:users,id',
             'assignee_id'  => 'nullable|exists:users,id',
+            // новые поля дат
+            'start_at'     => 'nullable|date',
+            'due_at'       => 'nullable|date|after_or_equal:start_at',
         ]);
 
         $project->fill($data)->save();
