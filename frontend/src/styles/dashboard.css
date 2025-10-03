@@ -1,0 +1,179 @@
+/* ========= Общие утилиты страницы проекта ========= */
+
+:root {
+  --ocp-card: #0b0c10;
+  --ocp-card-2: #0c0e13;
+  --ocp-border: rgba(255,255,255,0.10);
+  --ocp-border-2: rgba(255,255,255,0.12);
+  --ocp-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.05) inset;
+  --ocp-grad-1: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  --ocp-grad-2: radial-gradient(600px 300px at 10% 0%, rgba(120,119,198,0.08), transparent),
+                radial-gradient(600px 300px at 90% 100%, rgba(16,185,129,0.08), transparent);
+}
+
+/* Контейнер */
+.ocp-wrap {
+  background-image: var(--ocp-grad-2);
+  background-attachment: local;
+}
+
+/* Тени / карточки */
+.shadow-elev { box-shadow: var(--ocp-shadow); }
+
+.ocp-card {
+  border: 1px solid var(--ocp-border);
+  background: var(--ocp-card);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--ocp-shadow);
+  backdrop-filter: blur(4px);
+}
+.ocp-card--glow {
+  position: relative;
+  overflow: hidden;
+}
+.ocp-card--glow::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background: radial-gradient(600px 300px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
+              radial-gradient(600px 300px at 100% 120%, rgba(16,185,129,0.14), transparent 60%);
+  pointer-events: none;
+  filter: blur(18px);
+  opacity: .55;
+}
+
+/* Панельной вид */
+.ocp-card--panel {
+  padding: 0; /* внутри чат уже со своим хедером/паддингом */
+}
+
+/* Кнопки */
+.ocp-btn {
+  --_bg: rgba(255,255,255,0.06);
+  --_bd: var(--ocp-border);
+  --_fg: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .75rem;
+  border-radius: .75rem;
+  border: 1px solid var(--_bd);
+  background: var(--_bg);
+  color: var(--_fg);
+  transition: transform .12s ease, background-color .15s ease, box-shadow .15s ease, border-color .15s ease;
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 8px 24px rgba(0,0,0,.25);
+}
+.ocp-btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.10); }
+.ocp-btn:active { transform: translateY(0); }
+
+.ocp-btn.primary {
+  --_bg: linear-gradient(90deg, #10b981 0%, #22d3ee 100%);
+  --_bd: rgba(255,255,255,0.2);
+  color: #0a0a0a;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(16,185,129,0.35);
+}
+.ocp-btn.primary:hover {
+  box-shadow: 0 10px 28px rgba(34,211,238,0.35);
+}
+
+/* Ссылки */
+.ocp-link { color: #a5b4fc; text-decoration: underline; }
+.ocp-link:hover { color: #c7d2fe; }
+
+/* «Чип» и «дата-чип» */
+.ocp-chip {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ocp-border);
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+  transition: transform .12s ease, background-color .15s ease, border-color .15s ease;
+}
+.ocp-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.12);
+}
+.ocp-date-chip {
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ocp-border);
+  background: rgba(255,255,255,0.12);
+  color: #e5e7eb;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Ключ-значение в боковой колонке */
+.ocp-kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .75rem;
+  align-items: center;
+}
+.ocp-kv > span:first-child {
+  color: rgba(255,255,255,.55);
+}
+.ocp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .25rem .5rem;
+  border-radius: .75rem;
+  border: 1px solid var(--ocp-border);
+  background: rgba(255,255,255,0.06);
+  font-size: 12px;
+  color: #fff;
+}
+
+/* ========= Прогресс-бар ========= */
+
+.ocp-progress-fill {
+  background: linear-gradient(90deg, #10b981 0%, #22d3ee 100%);
+  box-shadow: 0 0 24px rgba(16,185,129,0.35);
+  position: relative;
+  overflow: hidden;
+}
+.ocp-progress-fill::after {
+  /* «бегущий бликующий» штрих */
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 120px;
+  right: -120px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  animation: ocp-sheen 2.4s linear infinite;
+}
+@keyframes ocp-sheen {
+  0% { transform: translateX(-140%); opacity: .0; }
+  8% { opacity: .35; }
+  100% { transform: translateX(0%); opacity: 0; }
+}
+.ocp-progress-shine {
+  background: linear-gradient(180deg, rgba(255,255,255,.20), transparent);
+  mix-blend-mode: overlay;
+}
+
+/* ========= Hover-анимации для карточек ========= */
+.ocp-card:hover .ocp-badge {
+  border-color: var(--ocp-border-2);
+}
+.ocp-card:hover {
+  border-color: var(--ocp-border-2);
+}
+
+/* ========= Небольшие правки для тёмной темы Tailwind ========= */
+:root { color-scheme: dark; }
+
+
+
+/* ========= Прогресс-бар ========= */
+.ocp-progress-fill {
+  background: linear-gradient(90deg, #10b981 0%, #22d3ee 100%);
+  box-shadow: 0 0 24px rgba(16,185,129,0.35);
+  position: relative;
+  overflow: hidden;
+  transition: width .35s cubic-bezier(.2,.7,.2,1); /* ← плавное изменение ширины */
+}

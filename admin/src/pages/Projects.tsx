@@ -1,4 +1,5 @@
 "use client";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getSavedToken,
@@ -12,7 +13,7 @@ import {
 import type { User, Project, Paginated } from "../types";
 import ProjectsTable from "../components/ProjectsTable";
 
-/* ---------- Вспомогательное модальное окно создания ---------- */
+/* ---------- Модалка создания проекта ---------- */
 function CreateProjectModal({
   open,
   onClose,
@@ -32,6 +33,9 @@ function CreateProjectModal({
   const [progress, setProgress] = useState(0);
   const [userId, setUserId] = useState<number | "">("");
   const [assigneeId, setAssigneeId] = useState<number | "">("");
+  const [startAt, setStartAt] = useState<string>("");
+  const [dueAt, setDueAt] = useState<string>("");
+
   const [saving, setSaving] = useState(false);
   const canSave = title.trim().length > 0 && typeof userId === "number";
 
@@ -43,6 +47,8 @@ function CreateProjectModal({
       setProgress(0);
       setUserId("");
       setAssigneeId("");
+      setStartAt("");
+      setDueAt("");
       setSaving(false);
     }
   }, [open]);
@@ -50,48 +56,16 @@ function CreateProjectModal({
   if (!open) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.35)",
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          width: "min(680px, 100%)",
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 16,
-          padding: 16,
-        }}
-      >
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>Создать проект</h3>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", display: "grid", placeItems: "center", padding: 16, zIndex: 50 }}>
+      <div style={{ width: "min(720px, 100%)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 16 }}>
+        <h3 style={{ margin: 0, marginBottom: 12 }}>Создать проект</h3>
 
         <div style={{ display: "grid", gap: 10 }}>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Название"
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
-          />
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Описание"
-            rows={3}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
-          />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" rows={3} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
+
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as Project["status"])}
-              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
-            >
+            <select value={status} onChange={(e) => setStatus(e.target.value as Project["status"])} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
               <option value="new">new</option>
               <option value="in_progress">in_progress</option>
               <option value="paused">paused</option>
@@ -99,23 +73,13 @@ function CreateProjectModal({
             </select>
 
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={progress}
-                onChange={(e) => setProgress(Number(e.target.value))}
-              />
+              <input type="range" min={0} max={100} value={progress} onChange={(e) => setProgress(Number(e.target.value))} />
               <span style={{ fontSize: 12, color: "#6b7280" }}>{progress}%</span>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : "")}
-              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", minWidth: 240 }}
-            >
+            <select value={userId} onChange={(e) => setUserId(e.target.value ? Number(e.target.value) : "")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", minWidth: 260 }}>
               <option value="">— выберите клиента —</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -124,11 +88,7 @@ function CreateProjectModal({
               ))}
             </select>
 
-            <select
-              value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : "")}
-              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", minWidth: 240 }}
-            >
+            <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : "")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", minWidth: 260 }}>
               <option value="">— исполнитель (необязательно) —</option>
               {staff.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -136,6 +96,11 @@ function CreateProjectModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
+            <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }} />
           </div>
         </div>
 
@@ -151,24 +116,20 @@ function CreateProjectModal({
                 setSaving(true);
                 await onCreate({
                   title: title.trim(),
-                  description: description.trim(),
+                  description: description.trim() || undefined,
                   status,
                   progress,
                   user_id: userId as number,
                   assignee_id: (assigneeId || undefined) as number | undefined,
+                  start_at: startAt || null,
+                  due_at: dueAt || null,
                 });
                 onClose();
               } finally {
                 setSaving(false);
               }
             }}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 10,
-              background: "#111",
-              color: "#fff",
-              opacity: canSave ? 1 : 0.6,
-            }}
+            style={{ padding: "8px 12px", borderRadius: 10, background: "#111", color: "#fff", opacity: canSave ? 1 : 0.6 }}
           >
             Создать
           </button>
@@ -179,7 +140,6 @@ function CreateProjectModal({
 }
 
 /* ---------------------------- Страница ---------------------------- */
-
 export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Project[]>([]);
@@ -240,51 +200,45 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Поиск по названию/описанию"
-          style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", minWidth: 260 }}
-        />
-        <button
-          onClick={() => load()}
-          style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}
-        >
-          Фильтр
-        </button>
-        <button
-          onClick={() => setOpenCreate(true)}
-          style={{ padding: "8px 10px", borderRadius: 10, background: "#111", color: "#fff" }}
-        >
-          + Создать
-        </button>
+    // ==== FULL-BLEED, как в Contacts.tsx ====
+    <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)" }}>
+      <div style={{ display: "grid", gap: 12, width: "100%", paddingInline: 16, boxSizing: "border-box" }}>
+        {/* Панель фильтров/кнопок */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", width: "100%" }}>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Поиск по названию/описанию"
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb", minWidth: 280, flex: "1 1 420px" }}
+          />
+          <button onClick={() => load()} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+            Обновить
+          </button>
+          <button onClick={() => setOpenCreate(true)} style={{ padding: "8px 10px", borderRadius: 10, background: "#111", color: "#fff" }}>
+            + Создать
+          </button>
+        </div>
+
+        {/* Контент */}
+        {loading ? (
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, width: "100%" }}>
+            Загрузка…
+          </div>
+        ) : (
+          <ProjectsTable
+            items={items}
+            staff={staff}
+            clients={clients}
+            pagination={links}
+            onNavigate={load}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+          />
+        )}
       </div>
 
-      {loading ? (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16 }}>
-          Загрузка…
-        </div>
-      ) : (
-        <ProjectsTable
-          items={items}
-          staff={staff}
-          clients={clients}
-          pagination={links}
-          onNavigate={load}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-        />
-      )}
-
-      <CreateProjectModal
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
-        staff={staff}
-        clients={clients}
-        onCreate={handleCreate}
-      />
+      {/* модалка */}
+      <CreateProjectModal open={openCreate} onClose={() => setOpenCreate(false)} staff={staff} clients={clients} onCreate={handleCreate} />
     </div>
   );
 }

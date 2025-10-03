@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useCallback } from 'react';
 import type { CSSVars, RGB } from '@/types/ui';
 import ServiceTheme from './ServiceTheme';
 
@@ -10,6 +10,8 @@ type Props = { slug: string; title: string; desc: string; acc1: RGB; acc2: RGB }
 export default function ServiceHero({ slug, title, desc, acc1, acc2 }: Props) {
   // мягкие акценты (и для потомков через CSS-переменные)
   const vars: CSSVars = { '--acc1': acc1.join(' '), '--acc2': acc2.join(' ') };
+
+  
 
   // продублируем цвета в виде строк — используем прямо в inline-стилях,
   // чтобы исключить любые «залипшие» дефолты

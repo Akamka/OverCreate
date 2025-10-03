@@ -14,6 +14,45 @@ body{
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 1) никогда не фиксируем высоту страницы */
+html, body {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: auto !important;
+}
+
+/* 2) если когда-то модалка/ленис оставили инлайн-стили — перебиваем */
+body[style*="position: fixed"] {
+  position: static !important;
+  top: auto !important;
+  width: auto !important;
+  overflow: auto !important;
+}
+
+/* 3) Lenis: не ломай нативный scroll-behavior */
+.lenis.lenis-smooth { scroll-behavior: auto; }
+
+/* 4) защищаем вертикальную прокрутку, даже если внутри есть горизонтальные карусели */
+[data-lenis-prevent] { overscroll-behavior: contain; }
+
+/* 5) на всякий — не ограничиваем высоту основных контейнеров */
+#__next, main, [data-nextjs-scroll-focus-boundary] {
+  min-height: auto !important;
+  height: auto !important;
+}
+
+/* 6) секции: никакого overflow:hidden по умолчанию */
+.oc-section {
+  overflow: visible !important;
+}
+
+/* 7) небольшой безопасный отступ внизу страницы, чтобы было куда докрутить */
+body::after {
+  content: "";
+  display: block;
+  height: max(24px, env(safe-area-inset-bottom));
+}
+
 
 @supports not (overflow: clip) {
   html, body { overflow-x: hidden; } /* фолбэк для старых браузеров */
@@ -2205,7 +2244,7 @@ main { overscroll-behavior: auto; }
 
 
 
-/* === Patch: убираем едва заметный «бортик» снизу из общей тени карт === */
+/** === Patch: убираем едва заметный «бортик» снизу из общей тени карт === */
 
 /* вариант с мягкой глубиной, без «бортика» */
 .pf-card{
@@ -2219,3 +2258,206 @@ main { overscroll-behavior: auto; }
     0 10px 20px rgba(0,0,0,.16) !important;
 }
 
+
+
+/*! === Initial page reveal =============================================== */
+/* На SSR body имеет класс .preload — всё скрыто. Видимых рывков при гидрации нет. */
+/* ===== Initial page reveal: работает только для содержимого main ===== */
+.preload main [data-reveal]{
+  opacity:0 !important;
+  transform: translateY(10px) scale(.998);
+  filter: blur(8px);
+}
+
+.reveal-on main [data-reveal]{
+  opacity:1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+  transition:
+    opacity .66s cubic-bezier(.22,.6,.2,1),
+    transform .66s cubic-bezier(.22,.6,.2,1),
+    filter .66s ease;
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform, filter;
+  backface-visibility: hidden;
+}
+
+/* поверхность для framer-motion (минимум стилей, чтобы не конфликтовать) */
+.route-surface{
+  will-change: opacity, transform, filter;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+
+
+
+/*! ==== Scrollbars guard (global) ==== */
+html, body {
+  min-height: 100%;
+  overflow-x: clip; /* или hidden, если нужна совместимость со старыми браузерами */
+}
+
+/* Фоновый контейнер не должен влиять на поток и ширину страницы */
+.oc-bg-root {
+  width: 100%;
+  height: 100%;
+  /* фиксируем любые расширения из-за blur/filters на внутренних слоях */
+  overflow: hidden;
+  contain: paint;
+}
+
+/* Каждый слой фона придерживаем в рамках вьюпорта */
+.oc-bg-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Если где-то используется 100vw — исключаем появление горизонтального скролла
+   из-за ширины системного вертикального скроллбара */
+* { box-sizing: border-box; }
+
+/* (НЕ обязательно, но полезно) — запрещаем «прыжки» от transform/filters,
+   которые могут «намекать» движку на расширение области рендеринга */
+.oc-bg-layer,
+.oc-bg-root {
+  will-change: opacity, transform, filter;
+}
+
+/* Когда контента хватает, убираем вертикальный скролл полностью */
+html.oc-no-vert-scroll,
+body.oc-no-vert-scroll {
+  overflow-y: hidden !important;
+}
+
+/* Оставляем защиту от горизонтального скролла (как ранее) */
+html, body {
+  overflow-x: clip; /* можно заменить на hidden при необходимости */
+}
+
+
+
+/*! Dashboard */
+
+/* лёгкая сетка */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.25) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* шум */
+.bg-noise {
+  background-image: url("data:image/svg+xml;utf8,\
+  <svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>\
+  <filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter>\
+  <rect width='100%' height='100%' filter='url(%23n)' opacity='.25'/></svg>");
+  background-size: 300px 300px;
+}
+
+/* стеклянная карточка */
+.glass {
+  @apply bg-white/5 border border-white/10 backdrop-blur-xl shadow-[0_10px_40px_-15px_rgba(0,0,0,.6)];
+  border-radius: 1.25rem;
+}
+
+/* кнопки */
+.btn-primary {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl
+         bg-white text-black font-medium hover:opacity-90 transition;
+}
+.btn-secondary {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl
+         border border-white/20 bg-white/10 hover:bg-white/15 transition;
+  color: rgba(255,255,255,.9);
+}
+
+
+
+
+/*! Chat */
+
+/* ====== CHAT THEME UTILITIES ====== */
+:root{
+  --oc-glass: rgba(255,255,255,.72);
+  --oc-glass-weak: rgba(255,255,255,.55);
+  --oc-stroke: 0 0 0 1px rgba(15,18,20,.08) inset;
+  --oc-shadow: 0 12px 40px -18px rgba(15,18,20,.35);
+  --oc-soft: 0 8px 24px -16px rgba(15,18,20,.22);
+  --oc-neon: 0 0 0 1px rgba(132,94,247,.18), 0 8px 30px -12px rgba(132,94,247,.45);
+}
+
+/* мягкая сетка + шум */
+@layer utilities{
+  .bg-grid {
+    background-image:
+      radial-gradient(transparent 1px, rgba(255,255,255,.08) 1px),
+      linear-gradient(to bottom, rgba(255,255,255,.35), rgba(255,255,255,.18));
+    background-size: 24px 24px, 100% 100%;
+    background-position: -1px -1px, 0 0;
+  }
+  .bg-noise {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.03'/></svg>");
+    background-size: 300px 300px;
+  }
+
+  /* поверхность ленты */
+  .chat-surface {
+    @apply rounded-2xl bg-white/60 backdrop-blur;
+    box-shadow: var(--oc-soft);
+  }
+
+  /* стеклянные бабблы */
+  .bubble-them{
+    @apply bg-white/80 backdrop-blur border rounded-2xl text-gray-900;
+    box-shadow: var(--oc-stroke), 0 10px 25px -18px rgba(0,0,0,.25);
+  }
+  .bubble-me{
+    background: radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0b0b 40%) ,
+                linear-gradient(90deg, rgba(120,73,255,.25), rgba(56,189,248,.2));
+    @apply text-white rounded-2xl;
+    box-shadow: var(--oc-neon);
+  }
+
+  /* чип-дата/индикаторы */
+  .chip{
+    @apply text-[11px] px-3 py-1 rounded-full border bg-white/80 text-gray-600;
+    box-shadow: var(--oc-stroke);
+  }
+
+  /* аватар с градиентным кольцом */
+  .avatar-ring{
+    background:
+      radial-gradient( circle at 30% 30%, rgba(255,255,255,.65), rgba(255,255,255,.45)),
+      conic-gradient(from 180deg, #a78bfa, #60a5fa, #34d399, #a78bfa);
+    padding: 2px; border-radius: 9999px;
+  }
+
+  /* кнопка отправки — неоновая */
+  .btn-primary{
+    background: linear-gradient(180deg, #0b0b0b, #111827);
+    @apply text-white rounded-xl px-4 py-2 transition;
+    box-shadow: var(--oc-neon);
+  }
+  .btn-primary:hover{ filter: brightness(1.06); }
+
+  /* стеклянный инпут */
+  .glass-input{
+    @apply rounded-xl border bg-white/80 backdrop-blur overflow-hidden;
+    box-shadow: var(--oc-stroke);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+/* ============ OC: utilities for subtle neon/dark-glass look ============ */

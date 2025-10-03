@@ -15,12 +15,15 @@ import ServicePortfolio from '@/components/services/ServicePortfolio'; // ← о
 import ServiceCTA from '@/components/services/ServiceCTA';
 import ServiceHighlights from '@/components/services/ServiceHighlights';
 import ServiceFAQ from '@/components/services/ServiceFAQ';
+import BackToHome from '@/components/ui/BackToHome';
 
 import { fetchPortfolioByService, type Portfolio } from '@/lib/api';
 
 // типы для css vars
 type CSSVarMap = Record<`--${string}`, string>;
 type StyleWithVars = React.CSSProperties & CSSVarMap;
+
+
 
 /* SSG */
 export function generateStaticParams(): Array<{ slug: ServiceSlug }> {
@@ -89,6 +92,8 @@ export default async function ServicePage({ params }: PageProps) {
 
   return (
     <main key={`service-${params.slug}`} className="relative" style={vars}>
+      <BackToHome />
+
       <ServiceHero
         key={`hero-${params.slug}-${cfg.acc1.join('_')}-${cfg.acc2.join('_')}`}
         slug={params.slug}

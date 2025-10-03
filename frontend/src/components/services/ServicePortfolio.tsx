@@ -9,7 +9,7 @@ import React, {
   type CSSProperties,
 } from 'react';
 import Image from 'next/image';
-import PortfolioModal from './PortfolioModal'; // проверь путь
+import PortfolioModal from './PortfolioModal';
 
 /* ---------- types ---------- */
 export type RGB = [number, number, number];
@@ -52,7 +52,7 @@ export default function ServicePortfolio({
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState<number>(0);
   const [cardW, setCardW] = useState<number>(320);
   const [openedId, setOpenedId] = useState<number | null>(null);
 
@@ -64,16 +64,14 @@ export default function ServicePortfolio({
     return { '--acc1': accentFrom.join(' '), '--acc2': accentTo.join(' ') };
   }, [accentFrom, accentTo]);
 
-  const bleedVars = useMemo<BleedVars>(
-    () => ({ ['--pf-bleed']: `${BLEED}px` }),
-    []
-  );
+  const bleedVars = useMemo<BleedVars>(() => ({ ['--pf-bleed']: `${BLEED}px` }), []);
 
   /* ======================== Smooth scroll helpers ======================= */
-  const supportsNativeSmooth = useMemo(() => {
+  const supportsNativeSmooth = useMemo<boolean>(() => {
     try {
       const el = document.createElement('div');
-      el.scrollTo({ left: 0, top: 0, behavior: 'smooth' as ScrollBehavior });
+      // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+      el.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
       return true;
     } catch {
       return false;
@@ -88,48 +86,55 @@ export default function ServicePortfolio({
     }
   }, []);
 
-  const easeInOutCubic = (t: number) =>
-    (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const easeInOutCubic = (t: number): number =>
+    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-  const rAFScrollTo = useCallback((left: number, duration = 560) => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    cancelAnim();
+  const rAFScrollTo = useCallback(
+    (left: number, duration = 560) => {
+      const vp = viewportRef.current;
+      if (!vp) return;
+      cancelAnim();
 
-    const start = vp.scrollLeft;
-    const delta = left - start;
-    if (Math.abs(delta) < 1) {
-      vp.scrollLeft = left;
-      return;
-    }
-    const t0 = performance.now();
+      const start = vp.scrollLeft;
+      const delta = left - start;
+      if (Math.abs(delta) < 1) {
+        vp.scrollLeft = left;
+        return;
+      }
+      const t0 = performance.now();
 
-    const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / duration);
-      vp.scrollLeft = start + delta * easeInOutCubic(p);
-      if (p < 1) rafId.current = requestAnimationFrame(step);
-      else rafId.current = null;
-    };
-    rafId.current = requestAnimationFrame(step);
-  }, [cancelAnim]);
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / duration);
+        vp.scrollLeft = start + delta * easeInOutCubic(p);
+        if (p < 1) rafId.current = requestAnimationFrame(step);
+        else rafId.current = null;
+      };
+      rafId.current = requestAnimationFrame(step);
+    },
+    [cancelAnim]
+  );
 
-  const smoothTo = useCallback((left: number) => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    cancelAnim();
-    if (supportsNativeSmooth) vp.scrollTo({ left, behavior: 'smooth' });
-    else rAFScrollTo(left);
-  }, [supportsNativeSmooth, rAFScrollTo, cancelAnim]);
+  const smoothTo = useCallback(
+    (left: number) => {
+      const vp = viewportRef.current;
+      if (!vp) return;
+      cancelAnim();
+      if (supportsNativeSmooth) vp.scrollTo({ left, behavior: 'smooth' });
+      else rAFScrollTo(left);
+    },
+    [supportsNativeSmooth, rAFScrollTo, cancelAnim]
+  );
   /* ==================================================================== */
 
-  const getVpPadLeft = () => {
+  const getVpPadLeft = (): number => {
     const vp = viewportRef.current;
     if (!vp) return 0;
     const cs = getComputedStyle(vp);
-    return parseFloat(cs.paddingLeft || '0') || 0;
+    const val = parseFloat(cs.paddingLeft || '0');
+    return Number.isFinite(val) ? val : 0;
   };
 
-  const getPageWidth = useCallback(() => {
+  const getPageWidth = useCallback((): number => {
     const vp = viewportRef.current;
     if (!vp) return 0;
     return Math.max(0, vp.clientWidth - 2 * BLEED);
@@ -142,7 +147,7 @@ export default function ServicePortfolio({
     setCardW(Math.max(200, Math.round(w)));
   }, [GAP, perView, getPageWidth]);
 
-  const getPagePositions = useCallback(() => {
+  const getPagePositions = useCallback((): number[] => {
     const track = trackRef.current;
     if (!track) return [0];
 
@@ -156,17 +161,20 @@ export default function ServicePortfolio({
     return arr;
   }, [pages, perView]);
 
-  const goTo = useCallback((targetPage: number) => {
-    const clamped = Math.max(0, Math.min(targetPage, pages - 1));
-    setPage(clamped);
-    requestAnimationFrame(() => {
-      const positions = getPagePositions();
-      smoothTo(positions[clamped] ?? 0);
-    });
-  }, [pages, getPagePositions, smoothTo]);
+  const goTo = useCallback(
+    (targetPage: number) => {
+      const clamped = Math.max(0, Math.min(targetPage, pages - 1));
+      setPage(clamped);
+      requestAnimationFrame(() => {
+        const positions = getPagePositions();
+        smoothTo(positions[clamped] ?? 0);
+      });
+    },
+    [pages, getPagePositions, smoothTo]
+  );
 
-  const next = () => goTo(page + 1);
-  const prev = () => goTo(page - 1);
+  const next = (): void => goTo(page + 1);
+  const prev = (): void => goTo(page - 1);
 
   /* ---------- resize: удерживаем текущую страницу (без анимации) ---------- */
   useEffect(() => {
@@ -200,12 +208,11 @@ export default function ServicePortfolio({
     let lastT = 0;
     let velocity = 0;
 
-    const isInteractive = (el: EventTarget | null) =>
+    const isInteractive = (el: EventTarget | null): boolean =>
       el instanceof Element &&
-      !!el.closest('button, a, [role="button"], input, select, textarea, label');
+      Boolean(el.closest('button, a, [role="button"], input, select, textarea, label'));
 
     const down = (e: PointerEvent) => {
-      // если клик по кнопке/ссылке — НЕ начинаем драг и не захватываем указатель
       if (isInteractive(e.target)) return;
 
       dragging = true;
@@ -236,10 +243,13 @@ export default function ServicePortfolio({
 
       const positions = getPagePositions();
       let curr = 0;
-      let best = Infinity;
+      let best = Number.POSITIVE_INFINITY;
       positions.forEach((pos, i) => {
         const d = Math.abs(vp.scrollLeft - pos);
-        if (d < best) { best = d; curr = i; }
+        if (d < best) {
+          best = d;
+          curr = i;
+        }
       });
 
       const threshold = 0.25;
@@ -288,7 +298,10 @@ export default function ServicePortfolio({
           style={{
             marginLeft: 'calc(var(--pf-bleed, 0px) * -1)',
             marginRight: 'calc(var(--pf-bleed, 0px) * -1)',
-            marginBottom: 'calc(var(--pf-bleed, 0px) * -1)',
+            // ❌ УБИРАЕМ отрицательный marginBottom, он «съедает» низ страницы
+            // marginBottom: 'calc(var(--pf-bleed, 0px) * -1)',
+            // ✅ Делаем безопасную компенсацию высоты паддингом
+            paddingBottom: 'var(--pf-bleed, 0px)',
             overflow: 'visible',
             ...bleedVars,
           }}
@@ -356,10 +369,12 @@ export default function ServicePortfolio({
           <div
             ref={viewportRef}
             className="no-scrollbar pf-viewport"
+            data-lenis-prevent=""                /* ← не даём Lenis перехватывать горизонтальную прокрутку */
             style={{
               paddingLeft: 'var(--pf-bleed)',
               paddingRight: 'var(--pf-bleed)',
-              paddingBottom: 'var(--pf-bleed)',
+              // ❌ убрать — из-за него суммарная высота считалась неверно
+              // paddingBottom: 'var(--pf-bleed)',
               overflowX: 'auto',
               overflowY: 'visible',
               scrollBehavior: 'smooth',
@@ -371,7 +386,7 @@ export default function ServicePortfolio({
               style={{ gap: GAP }}
             >
               {items.map((it) => (
-                <Card key={it.id} item={it} cardW={cardW} onOpen={setOpenedId} />
+                <Card key={String(it.id)} item={it} cardW={cardW} onOpen={setOpenedId} />
               ))}
               <div style={{ flex: `0 0 ${BLEED}px` }} aria-hidden />
             </div>
@@ -379,6 +394,9 @@ export default function ServicePortfolio({
         </div>
 
         {!controlsDisabled && <Dots pages={pages} page={page} goTo={goTo} />}
+
+        {/* страховочный спейсер, чтобы скролл точно доходил до конца */}
+        <div aria-hidden style={{ height: 24 }} />
       </div>
 
       {openedId != null && (
@@ -429,8 +447,8 @@ function Card({
   cardW: number;
   onOpen: (id: number) => void;
 }) {
-  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
-  const [hover, setHover] = useState(false);
+  const [tilt, setTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
+  const [hover, setHover] = useState<boolean>(false);
 
   const onMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -443,12 +461,16 @@ function Card({
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
 
   // конвертируем id в число для модалки (ожидает number)
-  const numericId =
-    typeof item.id === 'string' ? (Number.parseInt(item.id, 10) || null) : item.id;
+  const numericId: number | null =
+    typeof item.id === 'number'
+      ? item.id
+      : typeof item.id === 'string'
+      ? Number.parseInt(item.id, 10) || null
+      : null;
 
   const handleOpen = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    if (typeof numericId === 'number' && Number.isFinite(numericId)) {
+    if (numericId !== null && Number.isFinite(numericId)) {
       onOpen(numericId);
     }
   };

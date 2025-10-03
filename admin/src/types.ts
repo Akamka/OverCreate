@@ -13,7 +13,7 @@ export type ContactSubmission = {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   ip?: string | null;
-  status: ContactStatus;         // <— добавили
+  status: ContactStatus;
   created_at: string;
   updated_at?: string;
 };
@@ -45,6 +45,11 @@ export type Project = {
   assignee_id?: number | null;
   user?: Pick<User, 'id' | 'name' | 'email'>;
   assignee?: Pick<User, 'id' | 'name' | 'email'> | null;
+
+  /** ↓↓↓ добавили — даты могут быть null/undefined */
+  start_at?: string | null;
+  due_at?: string | null;
+
   created_at?: string;
   updated_at?: string;
 };

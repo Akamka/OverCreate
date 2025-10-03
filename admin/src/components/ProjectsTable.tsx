@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import type { Project, User, Paginated } from "../types";
 
@@ -10,6 +11,13 @@ type Props = {
   onUpdate?: (id: number, patch: Partial<Project>) => void;
   onDelete?: (id: number) => void;
 };
+
+function fmtDateShort(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
 export default function ProjectsTable({
   items,
@@ -32,6 +40,8 @@ export default function ProjectsTable({
       progress: p.progress,
       assignee_id: p.assignee_id ?? undefined,
       user_id: p.user_id,
+      start_at: p.start_at ?? null,
+      due_at: p.due_at ?? null,
     });
   }
   function cancelEdit() {
@@ -45,28 +55,70 @@ export default function ProjectsTable({
     setDraft({});
   }
 
+  // общие стили
+  const th: React.CSSProperties = { textAlign: "left", padding: "6px 8px", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap", fontSize: 13 };
+  const td: React.CSSProperties = { padding: "6px 8px", fontSize: 13, verticalAlign: "top", borderTop: "1px solid #eef2f7" };
+
+  // «узкий» режим — чуть скрываем колонки если совсем мало места
+  const isNarrow = typeof window !== "undefined" && window.innerWidth < 1280;
+
   return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 16 }}>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 16,
+        padding: 12,
+        width: "100%",           // тянем контейнер
+        maxWidth: "none",
+        margin: 0,
+        justifySelf: "stretch",
+      }}
+    >
+      <div style={{ overflowX: "hidden" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            tableLayout: "fixed", // фиксированные ширины
+            fontSize: 13,
+          }}
+        >
+          <colgroup>
+            <col style={{ width: 56 }} />      {/* ID */}
+            <col style={{ width: 300 }} />     {/* Название */}
+            <col style={{ width: 180 }} />     {/* Клиент */}
+            <col style={{ width: 180 }} />     {/* Исполнитель */}
+            <col style={{ width: 130 }} />     {/* Статус */}
+            <col style={{ width: 110 }} />     {/* Прогресс */}
+            {!isNarrow && <col style={{ width: 150 }} />} {/* Старт */}
+            {!isNarrow && <col style={{ width: 150 }} />} {/* Дедлайн */}
+            <col style={{ width: 140 }} />     {/* Действия */}
+          </colgroup>
+
           <thead>
             <tr style={{ background: "#f8fafc" }}>
-              {["ID", "Название", "Клиент", "Исполнитель", "Статус", "Прогресс", "Действия"].map((h) => (
-                <th key={h} style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #e5e7eb" }}>
-                  {h}
-                </th>
-              ))}
+              <th style={th}>ID</th>
+              <th style={th}>Название</th>
+              <th style={th}>Клиент</th>
+              <th style={th}>Исполнитель</th>
+              <th style={th}>Статус</th>
+              <th style={th}>Прогресс</th>
+              {!isNarrow && <th style={th}>Старт</th>}
+              {!isNarrow && <th style={th}>Дедлайн</th>}
+              <th style={th}>Действия</th>
             </tr>
           </thead>
+
           <tbody>
             {items.map((p) => {
               const isEdit = editingId === p.id;
               return (
-                <tr key={p.id} style={{ borderTop: "1px solid #e5e7eb", verticalAlign: "top" }}>
-                  <td style={{ padding: 8 }}>{p.id}</td>
+                <tr key={p.id}>
+                  <td style={td}>{p.id}</td>
 
-                  {/* Название + описание */}
-                  <td style={{ padding: 8, minWidth: 240 }}>
+                  {/* Название + мини-описание (внутри фиксированной ячейки — обрезка) */}
+                  <td style={{ ...td, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {isEdit ? (
                       <>
                         <input
@@ -78,27 +130,26 @@ export default function ProjectsTable({
                           value={String(draft.description ?? "")}
                           onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                           rows={2}
-                          style={{
-                            width: "100%",
-                            marginTop: 6,
-                            padding: "6px 8px",
-                            borderRadius: 8,
-                            border: "1px solid #e5e7eb",
-                          }}
+                          style={{ width: "100%", marginTop: 6, padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
                         />
                       </>
                     ) : (
                       <>
                         <div style={{ fontWeight: 600 }}>{p.title}</div>
                         {p.description && (
-                          <div style={{ color: "#6b7280", marginTop: 4, whiteSpace: "pre-wrap" }}>{p.description}</div>
-                        )}
+                          <div
+                            title={p.description ?? undefined}
+                            style={{ color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          >
+                            {p.description}
+                          </div>
+                    )}
                       </>
                     )}
                   </td>
 
                   {/* Клиент */}
-                  <td style={{ padding: 8, minWidth: 220 }}>
+                  <td style={td}>
                     {isEdit ? (
                       <select
                         value={draft.user_id ?? p.user_id}
@@ -117,15 +168,12 @@ export default function ProjectsTable({
                   </td>
 
                   {/* Исполнитель */}
-                  <td style={{ padding: 8, minWidth: 220 }}>
+                  <td style={td}>
                     {isEdit ? (
                       <select
                         value={draft.assignee_id ?? p.assignee_id ?? ""}
                         onChange={(e) =>
-                          setDraft((d) => ({
-                            ...d,
-                            assignee_id: e.target.value ? Number(e.target.value) : undefined,
-                          }))
+                          setDraft((d) => ({ ...d, assignee_id: e.target.value ? Number(e.target.value) : undefined }))
                         }
                         style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb", width: "100%" }}
                       >
@@ -142,12 +190,12 @@ export default function ProjectsTable({
                   </td>
 
                   {/* Статус */}
-                  <td style={{ padding: 8, minWidth: 160 }}>
+                  <td style={td}>
                     {isEdit ? (
                       <select
                         value={draft.status ?? p.status}
                         onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as Project["status"] }))}
-                        style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+                        style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb", width: "100%" }}
                       >
                         <option value="new">new</option>
                         <option value="in_progress">in_progress</option>
@@ -160,7 +208,7 @@ export default function ProjectsTable({
                   </td>
 
                   {/* Прогресс */}
-                  <td style={{ padding: 8, minWidth: 170 }}>
+                  <td style={td}>
                     {isEdit ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <input
@@ -178,26 +226,40 @@ export default function ProjectsTable({
                     )}
                   </td>
 
+                  {/* Старт / Дедлайн (только если не очень узко) */}
+                  {!isNarrow && <td style={td}>{isEdit ? (
+                    <input
+                      type="datetime-local"
+                      value={(draft.start_at ?? p.start_at ?? "").replace("Z", "")}
+                      onChange={(e) => setDraft((d) => ({ ...d, start_at: e.target.value || null }))}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+                    />
+                  ) : (
+                    fmtDateShort(p.start_at)
+                  )}</td>}
+
+                  {!isNarrow && <td style={td}>{isEdit ? (
+                    <input
+                      type="datetime-local"
+                      value={(draft.due_at ?? p.due_at ?? "").replace("Z", "")}
+                      onChange={(e) => setDraft((d) => ({ ...d, due_at: e.target.value || null }))}
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb" }}
+                    />
+                  ) : (
+                    fmtDateShort(p.due_at)
+                  )}</td>}
+
                   {/* Действия */}
-                  <td style={{ padding: 8, whiteSpace: "nowrap" }}>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
                     {isEdit ? (
                       <>
                         <button
                           onClick={() => commitEdit(p.id)}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 8,
-                            background: "#111",
-                            color: "#fff",
-                            marginRight: 6,
-                          }}
+                          style={{ padding: "6px 10px", borderRadius: 8, background: "#111", color: "#fff", marginRight: 6 }}
                         >
                           Сохранить
                         </button>
-                        <button
-                          onClick={cancelEdit}
-                          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}
-                        >
+                        <button onClick={cancelEdit} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
                           Отмена
                         </button>
                       </>
@@ -224,7 +286,7 @@ export default function ProjectsTable({
 
             {!items.length && (
               <tr>
-                <td colSpan={7} style={{ padding: 16, textAlign: "center", color: "#6b7280" }}>
+                <td colSpan={isNarrow ? 7 : 9} style={{ padding: 12, textAlign: "center", color: "#6b7280" }}>
                   Нет проектов
                 </td>
               </tr>
@@ -234,7 +296,7 @@ export default function ProjectsTable({
       </div>
 
       {!!pagination?.length && onNavigate && (
-        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
           {pagination.map((l, i) =>
             l.url ? (
               <button
@@ -246,6 +308,7 @@ export default function ProjectsTable({
                   borderRadius: 8,
                   border: "1px solid #e5e7eb",
                   background: l.active ? "#e5e7eb" : "#fff",
+                  fontSize: 12,
                 }}
                 dangerouslySetInnerHTML={{ __html: l.label }}
               />
