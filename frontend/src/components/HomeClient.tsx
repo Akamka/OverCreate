@@ -1,60 +1,52 @@
-'use client'
+'use client';
 
-import NavBar from '@/components/NavBar'
-import Hero from '@/components/Hero'
-import ServicesGrid from '@/components/ServicesGrid'
-import Testimonials from '@/components/Testimonials'
-import OrderForm from '@/components/OrderForm'
-import type { Portfolio } from '@/types/portfolio'
+import NavBar from '@/components/NavBar';
+import Hero from '@/components/Hero';
+import ServicesGrid from '@/components/ServicesGrid';
+import Testimonials from '@/components/Testimonials';
+import OrderForm from '@/components/OrderForm';
+import AboutSection from '@/components/AboutSection';
+import type { Portfolio } from '@/types/portfolio';
+import type { RGB } from '@/types/ui';
+import type { ServiceSlug } from '@/lib/services.config';
 
-export default function HomeClient({ items }: { items: Portfolio[] }){
+export default function HomeClient({ items }: { items: Portfolio[] }) {
+  // keep accents consistent site-wide
+  const ACCENT_FROM: RGB = [59, 130, 246];  // blue-500
+  const ACCENT_TO:   RGB = [168, 85, 247];  // purple-500
+
+  // You can bind the request to a specific service if needed, e.g. 'web'
+  const DEFAULT_SERVICE: ServiceSlug | undefined = undefined;
+
   return (
     <main className="relative z-10">
       <NavBar />
       <Hero />
       <ServicesGrid />
 
-      {/* блок "О студии" */}
-      <section id="about" className="py-20 px-6 md:px-16">
-        <div className="max-w-[1200px] w-full mx-auto grid md:grid-cols-2 gap-10 items-center">
-          <div>
-            <h2 className="text-3xl font-semibold">OverCreate — Design and Development Studio</h2>
-            <p className="mt-4 text-neutral-300">
-              We value clarity in visual language and precision in every detail. Flexible, fast, and transparent — never at the expense of quality. 
-              Powered by a modern stack: Next.js, Laravel, Docker.
-              Smooth project launches, zero headaches.
-            </p>
-            <div className="mt-8 grid grid-cols-2 gap-4 max-w-md">
-              {[
-                ['6+','years of expertise'], 
-                ['120+','launched designs'], 
-                ['40+','brands served'], 
-                ['∞','iterations until it’s perfect'],
-              ].map(([n,t])=>(
-                <div key={t} className="glass rounded-2xl p-5 text-center">
-                  <div className="text-3xl font-semibold">{n}</div>
-                  <div className="text-sm text-neutral-400">{t}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* сюда можно вставить видео/шоурил */}
-          <div className="glass rounded-2xl aspect-[4/3]" />
-        </div>
-      </section>
+      <AboutSection />
 
       <Testimonials />
 
-      {/* Контакты / Заявка */}
+      {/* Contact / Order */}
       <section id="contact" className="py-20 px-6 md:px-16">
         <div className="max-w-[1200px] mx-auto">
-          <h2 className="text-3xl font-semibold mb-6">Расскажите о задаче</h2>
-          <OrderForm />
+          <h2 className="text-3xl font-semibold mb-6">Tell us about your project</h2>
+
+          <OrderForm
+            service={DEFAULT_SERVICE}
+            accentFrom={ACCENT_FROM}
+            accentTo={ACCENT_TO}
+          />
+
           <div className="mt-6 text-neutral-400 text-sm">
-            Или напишите: <a className="underline" href="mailto:hello@overcreate.studio">hello@overcreate.studio</a>
+            Or email us:{" "}
+            <a className="underline" href="mailto:hello@overcreate.studio">
+              hello@overcreate.studio
+            </a>
           </div>
         </div>
       </section>
     </main>
-  )
+  );
 }

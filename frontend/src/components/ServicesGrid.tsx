@@ -71,7 +71,7 @@ export default function ServicesGrid(){
   return (
     <section id="services" className="oc-section px-6 md:px-16 -mt-2">
       <div className="max-w-[1200px] mx-auto">
-        <h2 className="text-3xl font-semibold mb-8">Услуги</h2>
+        <h2 className="text-3xl font-semibold mb-8">Services</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map(s=>(
             <HoloCard

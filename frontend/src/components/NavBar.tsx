@@ -6,11 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
 
 const items = [
-  { id: 'home',         label: 'Главная' },
-  { id: 'services',     label: 'Услуги' },
-  { id: 'testimonials', label: 'Отзывы' },
-  { id: 'about',        label: 'О студии' },
-  { id: 'contact',      label: 'Контакты' },
+  { id: 'home',         label: 'Home' },
+  { id: 'services',     label: 'Services' },
+  { id: 'testimonials', label: 'Reviews' },
+  { id: 'about',        label: 'About' },
+  { id: 'contact',      label: 'Contacts' },
 ];
 
 export default function NavBar() {
@@ -65,7 +65,7 @@ export default function NavBar() {
                   onClick={goCabinet}
                   className="px-3 py-1.5 rounded-full text-sm bg-white text-neutral-900 hover:bg-white/90 transition"
                 >
-                  Личный кабинет
+                  Dashboard
                 </button>
               ) : (
                 <>
@@ -73,13 +73,13 @@ export default function NavBar() {
                     href="/login?redirect=/dashboard"
                     className="px-3 py-1.5 rounded-full text-sm text-neutral-200 hover:bg-white/10 transition"
                   >
-                    Войти
+                    Sign in
                   </Link>
                   <Link
                     href="/register"
                     className="px-3 py-1.5 rounded-full text-sm bg-white text-neutral-900 hover:bg-white/90 transition"
                   >
-                    Регистрация
+                    Sign Up
                   </Link>
                 </>
               )}
