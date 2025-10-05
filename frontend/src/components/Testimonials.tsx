@@ -1,294 +1,502 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import * as React from 'react';
+import Image from 'next/image';
+
+/* ====================== Data ====================== */
 
 type Testimonial = {
-  id: string;
-  quote: string;
+  text: string;
   author: string;
   role: string;
-  company: string;
-  avatar?: string;
-  logo?: string;
-  rating?: 1 | 2 | 3 | 4 | 5;
+  avatar: string;
 };
 
-type Props = {
-  title?: string;
-  subtitle?: string;
-  items?: Testimonial[];
-};
-
-const DEFAULTS: Testimonial[] = [
+const ALL: Testimonial[] = [
   {
-    id: 't1',
-    quote:
-      'OverCreate shipped our website and motion package in record time. Communication was crystal clear and the handoff was immaculate.',
-    author: 'Anna M.',
-    role: 'Product Marketing Lead',
-    company: 'Kinetiq',
-    avatar: '/avatars/a1.png',
-    logo: '/logos/kinetiq.svg',
-    rating: 5,
+    text:
+      'OverCreate combined motion, brand and engineering into one consistent story. Clear process, clean UI — zero chaos.',
+    author: 'Alex Johnson',
+    role: 'Product Lead, Helix',
+    avatar: '/avatars/alex.jpg',
   },
   {
-    id: 't2',
-    quote:
-      'They blended bold visuals with precise frontend implementation. Our conversion rate jumped 27% within the first month.',
-    author: 'Trevor H.',
-    role: 'Head of Growth',
-    company: 'Lumio',
-    avatar: '/avatars/a2.png',
-    logo: '/logos/lumio.svg',
-    rating: 5,
+    text:
+      'We shipped a full redesign in weeks. Fast feedback loops, thoughtful decisions, strong craft.',
+    author: 'Maria Chen',
+    role: 'Marketing Director, Nova',
+    avatar: '/avatars/maria.jpg',
   },
   {
-    id: 't3',
-    quote:
-      'The team handled brand, web, and animation as one story. It felt like an in-house crew who just “got” our product.',
-    author: 'Sofia R.',
-    role: 'Founder',
-    company: 'Harbor',
-    avatar: '/avatars/a3.png',
-    logo: '/logos/harbor.svg',
-    rating: 5,
+    text:
+      'Design language, component system and code quality — everything aligned. Launch day was boring (the best kind).',
+    author: 'Igor Petrov',
+    role: 'Founder, Loop',
+    avatar: '/avatars/igor.jpg',
+  },
+  {
+    text:
+      'Great communication and clear milestones. Modern stack, smooth delivery, zero headaches.',
+    author: 'Jamie Lee',
+    role: 'CEO, Orbit',
+    avatar: '/avatars/jamie.jpg',
+  },
+  {
+    text:
+      'Pixel-perfect visuals, performance is tight, codebase is clean. Team you can trust.',
+    author: 'Nora White',
+    role: 'COO, Finch',
+    avatar: '/avatars/nora.jpg',
+  },
+  {
+    text:
+      'Fast iterations and high attention to detail. Strong partners for long-term projects.',
+    author: 'David Ruiz',
+    role: 'Head of Product, Lumen',
+    avatar: '/avatars/david.jpg',
+  },
+  {
+    text:
+      'Great synergy between design and development. Hand-off is painless, docs are tidy.',
+    author: 'Greg Berg',
+    role: 'CTO, Beacon',
+    avatar: '/avatars/greg.jpg',
+  },
+  {
+    text:
+      'From brief to launch — clear, fast, reliable. Highly recommend.',
+    author: 'Olivia Park',
+    role: 'Design Lead, Colect',
+    avatar: '/avatars/olivia.jpg',
+  },
+    {
+    text:
+      'Clear communication, quick iterations, and a solid design system. Shipping with confidence became our default.',
+    author: 'Sara Collins',
+    role: 'Product Manager, Kite',
+    avatar: '/avatars/sara.jpg',
+  },
+  {
+    text:
+      'From rough idea to polished launch in record time. The team was proactive and detail-oriented throughout.',
+    author: 'Michael Young',
+    role: 'Founder, Flux',
+    avatar: '/avatars/michael.jpg',
+  },
+  {
+    text:
+      'They translated complex requirements into a clean UX with zero friction. Dev handoff was the smoothest we had.',
+    author: 'Priya Patel',
+    role: 'Head of Design, Vertex',
+    avatar: '/avatars/priya.jpg',
+  },
+  {
+    text:
+      'Performance, accessibility, and visual quality — all first-class. We finally look like the product we are.',
+    author: 'Liam Turner',
+    role: 'CTO, Beacon Labs',
+    avatar: '/avatars/liam.jpg',
+  },
+  {
+    text:
+      'Consistent delivery week after week. Strong opinions when needed, and always backed by data.',
+    author: 'Emily Rogers',
+    role: 'Growth Lead, North',
+    avatar: '/avatars/emily.jpg',
+  },
+  {
+    text:
+      'Their component library saved our team months. Clear docs, reliable patterns, easy to extend.',
+    author: 'Tom Williams',
+    role: 'Engineering Manager, Delta',
+    avatar: '/avatars/tom.jpg',
+  },
+  {
+    text:
+      'Sharp visuals and production-ready code in one package. We shipped the rebrand without a single surprise.',
+    author: 'Julia Novak',
+    role: 'Brand Director, Orbit',
+    avatar: '/avatars/julia.jpg',
+  },
+  {
+    text:
+      'Every milestone was hit on time. Transparent planning and zero last-minute chaos.',
+    author: 'Daniel Kim',
+    role: 'Operations Lead, Lumen',
+    avatar: '/avatars/daniel.jpg',
+  },
+  {
+    text:
+      'They elevated our product with thoughtful motion. Subtle, purposeful, and performant.',
+    author: 'Ava Morales',
+    role: 'Design Lead, Hubble',
+    avatar: '/avatars/ava.jpg',
+  },
+  {
+    text:
+      'Our admin UX went from clunky to obvious. Support tickets dropped immediately after launch.',
+    author: 'Victor Almeida',
+    role: 'Customer Success, Pulse',
+    avatar: '/avatars/victor.jpg',
+  },
+  {
+    text:
+      'Great partner for a fast-moving startup. Pragmatic decisions, crisp execution, zero ego.',
+    author: 'Zoe Fisher',
+    role: 'CEO, Nook',
+    avatar: '/avatars/zoe.jpg',
+  },
+  {
+    text:
+      'They built a robust design system that scales. New features feel native instead of bolted on.',
+    author: 'Noah Bennett',
+    role: 'VP Product, Alloy',
+    avatar: '/avatars/noah.jpg',
+  },
+  {
+    text:
+      'The web experience finally matches our brand. Page speed is excellent and the details sing.',
+    author: 'Hannah Schultz',
+    role: 'Marketing Lead, Aurora',
+    avatar: '/avatars/hannah.jpg',
+  },
+  {
+    text:
+      'Clear specs, clean pull requests, and thoughtful reviews. Collaboration felt effortless.',
+    author: 'Ethan Bryant',
+    role: 'Senior Engineer, Core',
+    avatar: '/avatars/ethan.jpg',
+  },
+  {
+    text:
+      'Prototype on Monday, validated by Friday. They kept us focused on outcomes, not outputs.',
+    author: 'Maya Singh',
+    role: 'Research Lead, Atlas',
+    avatar: '/avatars/maya.jpg',
+  },
+  {
+    text:
+      'Motion guidelines and micro-interactions made our product feel alive — without hurting performance.',
+    author: 'Lucas Romero',
+    role: 'Design Engineer, Helio',
+    avatar: '/avatars/lucas.jpg',
+  },
+  {
+    text:
+      'We migrated to a modern stack with zero downtime. Monitoring and rollout were top-notch.',
+    author: 'Isabella Costa',
+    role: 'Platform Lead, Merge',
+    avatar: '/avatars/isabella.jpg',
+  },
+  {
+    text:
+      'They challenged our assumptions and made the product simpler. Our NPS went up within weeks.',
+    author: 'Owen Clarke',
+    role: 'Head of Product, Finch',
+    avatar: '/avatars/owen.jpg',
+  },
+  {
+    text:
+      'Attention to states, empty screens, and edge cases. It feels like they lived in our product for years.',
+    author: 'Keira Walsh',
+    role: 'UX Manager, Parallel',
+    avatar: '/avatars/keira.jpg',
+  },
+  {
+    text:
+      'Their QA is relentless in the best way. Launch day was… boring — just how it should be.',
+    author: 'Ryan Cooper',
+    role: 'Program Manager, Nimbus',
+    avatar: '/avatars/ryan.jpg',
+  },
+  {
+    text:
+      'A partner who cares about business goals, not just pixels. We hit our conversion targets early.',
+    author: 'Amelia Wright',
+    role: 'CRO Lead, Harbor',
+    avatar: '/avatars/amelia.jpg',
+  },
+  {
+    text:
+      'They turned our brand book into a living system: tokens, themes, and code we actually use.',
+    author: 'Leo Martins',
+    role: 'Design Systems, Quark',
+    avatar: '/avatars/leo.jpg',
+  },
+  {
+    text:
+      'Fast, friendly, and deeply competent. The best vendor relationship we’ve had in years.',
+    author: 'Chloe Nguyen',
+    role: 'COO, Stride',
+    avatar: '/avatars/chloe.jpg',
+  },
+  {
+    text:
+      'We finally have a site we’re proud to send to investors. The craft shows on every page.',
+    author: 'Miles Carter',
+    role: 'Founder, Field',
+    avatar: '/avatars/miles.jpg',
   },
 ];
 
-export default function Testimonials({
-  title = 'What clients say',
-  subtitle = 'A few words from people who shipped with OverCreate.',
-  items = DEFAULTS,
-}: Props) {
+/* ======== детерминированный «рандом» (одинаковый на SSR и CSR) ======== */
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return function () {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle<T>(arr: T[], seed: number) {
+  const rnd = mulberry32(seed);
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* ====================== Card ====================== */
+
+function Card({ t }: { t: Testimonial }) {
   return (
-    <section id="testimonials" className="oc-section px-6 md:px-16 py-20">
-      <div className="max-w-[1120px] mx-auto">
-        <header className="mb-8">
-          <h2 className="text-3xl md:text-4xl font-semibold">{title}</h2>
-          <p className="mt-2 text-white/65 max-w-2xl">{subtitle}</p>
-        </header>
-
-        <div className="grid md:grid-cols-3 gap-5 md:gap-6">
-          {items.map((t, i) => (
-            <Card key={t.id} index={i} data={t} />
-          ))}
+    <article
+      className={[
+        'relative z-0 w-[520px] max-w-full isolation-isolate',
+        'rounded-3xl border border-white/10 bg-white/[.035] backdrop-blur-sm',
+        'px-6 py-5 md:px-7 md:py-6',
+        'shadow-[0_10px_40px_-15px_rgba(0,0,0,.55)]',
+        'transition-all duration-400',
+        'hover:-translate-y-1 hover:shadow-[0_30px_80px_-40px_rgba(0,0,0,.8)]',
+        'group',
+      ].join(' ')}
+      style={{
+        backgroundImage:
+          'radial-gradient(120% 60% at 50% -20%, rgba(255,255,255,.06), transparent 60%)',
+      }}
+    >
+      <span
+        className="pointer-events-none absolute inset-0 z-0 rounded-3xl opacity-0 transition-opacity duration-400 group-hover:opacity-100"
+        style={{
+          background:
+            'radial-gradient(420px 260px at 30% 0%, rgba(255,255,255,.06), transparent 60%), radial-gradient(420px 260px at 70% 0%, rgba(255,255,255,.05), transparent 60%)',
+        }}
+        aria-hidden
+      />
+      <p className="relative z-10 pr-2 text-white/85">
+        <span className="mr-2 text-xl align-text-top text-white/50">“</span>
+        {t.text}
+        <span className="ml-2 text-xl align-text-top text-white/50">”</span>
+      </p>
+      <div className="relative z-10 mt-5 flex items-center gap-3">
+        <div className="relative h-10 w-10 overflow-hidden rounded-full border border-white/15">
+          <Image
+            src={t.avatar}
+            alt={t.author}
+            width={40}
+            height={40}
+            sizes="40px"
+            className="h-10 w-10 object-cover"
+            loading="lazy"
+          />
         </div>
+        <div className="leading-tight">
+          <div className="font-medium text-white">{t.author}</div>
+          <div className="text-xs text-white/60">{t.role}</div>
+        </div>
+      </div>
+    </article>
+  );
+}
 
-        <div className="mt-10 overflow-hidden">
-          <motion.div
-            className="flex items-center gap-10 opacity-70"
-            initial={{ x: 0 }}
-            animate={{ x: ['0%', '-50%'] }}
-            transition={{ duration: 32, repeat: Infinity, ease: 'linear' }}
-          >
-            {[...items, ...items].map((t, i) => (
-              <div key={`logo-${t.id}-${i}`} className="h-8 flex items-center">
-                {t.logo ? (
-                  <img
-                    src={t.logo}
-                    alt={`${t.company} logo`}
-                    className="h-8 w-auto opacity-70"
-                    draggable={false}
-                  />
-                ) : (
-                  <span className="text-sm text-white/60">{t.company}</span>
-                )}
-              </div>
-            ))}
-          </motion.div>
+/* ====================== Row (seamless) ====================== */
+
+type RowProps<T> = {
+  items: T[];
+  render: (t: T, i: number) => React.ReactNode;
+  reverse?: boolean;
+  speedPx?: number; // px/sec
+  gap?: number; // px
+  className?: string;
+};
+
+function Row<T>({
+  items,
+  render,
+  reverse,
+  speedPx = 48,
+  gap = 24,
+  className,
+}: RowProps<T>) {
+  const outerRef = React.useRef<HTMLDivElement | null>(null);
+  const railRef = React.useRef<HTMLDivElement | null>(null);
+  const unitRef = React.useRef<HTMLDivElement | null>(null);
+  const [copies, setCopies] = React.useState(6);
+
+  useSeamlessMarquee({
+    outerRef,
+    railRef,
+    unitRef,
+    speedPx,
+    reverse,
+    gap,
+    onCopiesNeeded: (unitW, wrapW) => {
+      const need = Math.max(6, Math.ceil((wrapW + unitW * 2) / Math.max(1, unitW)));
+      setCopies(need);
+    },
+  });
+
+  const Unit = (
+    <div ref={unitRef} className="flex shrink-0" style={{ columnGap: `${gap}px` }}>
+      {items.map((it, i) => (
+        <div key={i} className="shrink-0">
+          {render(it, i)}
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div
+      ref={outerRef}
+      className={['relative overflow-x-hidden overflow-y-visible py-6', className || ''].join(' ')}
+      style={{
+        WebkitMaskImage:
+          'linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 3%, rgba(0,0,0,1) 97%, rgba(0,0,0,0) 100%)',
+        maskImage:
+          'linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 3%, rgba(0,0,0,1) 97%, rgba(0,0,0,0) 100%)',
+      }}
+    >
+      <div ref={railRef} className="flex will-change-transform" style={{ columnGap: `${gap}px` }}>
+        {Array.from({ length: copies }).map((_, k) => (
+          <React.Fragment key={k}>{Unit}</React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ====================== Marquee hook ====================== */
+
+function useSeamlessMarquee({
+  outerRef,
+  railRef,
+  unitRef,
+  speedPx = 40,
+  reverse,
+  gap = 24,
+  onCopiesNeeded,
+}: {
+  outerRef: React.RefObject<HTMLDivElement | null>;
+  railRef: React.RefObject<HTMLDivElement | null>;
+  unitRef: React.RefObject<HTMLDivElement | null>;
+  speedPx?: number;
+  reverse?: boolean;
+  gap?: number;
+  onCopiesNeeded?: (unitWidth: number, wrapperWidth: number) => void;
+}) {
+  const remeasure = React.useCallback(() => {
+    const unit = unitRef.current;
+    const outer = outerRef.current;
+    if (!unit || !outer) return { unitW: 0, wrapW: 0 };
+
+    const kids = Array.from(unit.children) as HTMLElement[];
+    const widths = kids.map((el) => el.getBoundingClientRect().width);
+    const unitW = widths.reduce((s, w) => s + w, 0) + Math.max(0, widths.length - 1) * gap;
+    const wrapW = outer.clientWidth;
+
+    onCopiesNeeded?.(unitW, wrapW);
+    return { unitW: Math.max(1, unitW), wrapW };
+  }, [gap, onCopiesNeeded]);
+
+  React.useEffect(() => {
+    let raf = 0;
+    const tStart = performance.now();
+
+    let unitW = 1;
+    unitW = Math.max(1, remeasure().unitW);
+
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const pixelSnap = 1 / dpr;
+
+    const ro = new ResizeObserver(() => {
+      const m = remeasure();
+      unitW = Math.max(1, m.unitW);
+    });
+    if (unitRef.current) ro.observe(unitRef.current);
+    if (outerRef.current) ro.observe(outerRef.current);
+
+    const imgs = unitRef.current?.querySelectorAll('img') || [];
+    const onLoad = () => {
+      const m = remeasure();
+      unitW = Math.max(1, m.unitW);
+    };
+    imgs.forEach((img) => {
+      if (img instanceof HTMLImageElement && !img.complete) {
+        img.addEventListener('load', onLoad);
+        img.addEventListener('error', onLoad);
+      }
+    });
+
+    const tick = (t: number) => {
+      const rail = railRef.current;
+      if (!rail || unitW <= 1) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const dt = (t - tStart) / 1000;
+      const dist = (dt * speedPx) % unitW;
+
+      // Всегда двигаем влево; reverse = начать с другого края
+      const offset = reverse ? (unitW - dist) : dist;
+      let x = -offset;
+
+      x = Math.round(x / pixelSnap) * pixelSnap;
+      rail.style.transform = `translate3d(${x}px,0,0)`;
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      imgs.forEach((img) => {
+        if (img instanceof HTMLImageElement) {
+          img.removeEventListener('load', onLoad);
+          img.removeEventListener('error', onLoad);
+        }
+      });
+    };
+  }, [gap, outerRef, railRef, remeasure, reverse, speedPx, unitRef]);
+}
+
+/* ====================== Section ====================== */
+
+export default function Testimonials() {
+  // детерминированный порядок — НЕТ случайностей => НЕТ ошибок гидрации
+  const row1 = ALL;
+  const row2 = seededShuffle(ALL, 1337);
+  const row3 = seededShuffle(ALL, 424242);
+
+  return (
+    <section id="testimonials" className="oc-section oc-section--flat px-6 md:px-16 py-16">
+      <div className="max-w-[1200px] mx-auto">
+        <h2 className="text-3xl md:text-4xl font-semibold text-white">What clients say</h2>
+        <p className="mt-2 text-white/65">
+          A small selection of feedback from teams we helped ship and grow.
+        </p>
+
+        <div className="mt-8 space-y-6">
+          <Row items={row1} speedPx={46} gap={24} render={(t) => <Card t={t} />} />
+          <Row items={row2} reverse speedPx={54} gap={24} render={(t) => <Card t={t} />} />
+          <Row items={row3} speedPx={40} gap={24} render={(t) => <Card t={t} />} />
         </div>
       </div>
     </section>
   );
-}
-
-/* ------------------------------------------------------------------ */
-/* Card with “light from above” that glides onto card on hover         */
-/* and returns back smoothly when leaving                              */
-/* ------------------------------------------------------------------ */
-
-function Card({ data, index }: { data: Testimonial; index: number }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  // CSS vars: spotlight position and alpha
-  const [vars, setVars] = useState<{ ['--x']?: string; ['--y']?: string; ['--a']?: string }>({
-    '--x': '50%',
-    '--y': '-20%', // ✨ стартуем выше карточки
-    '--a': '0.45', // лёгкая подсветка в покое
-  });
-
-  // Target/current pos in normalized coords (0..1 horizontally, can be <0 vertically to stay above)
-  const target = useRef({ x: 0.5, y: -0.2 }); // ✨ над карточкой по умолчанию
-  const current = useRef({ x: 0.5, y: -0.2 });
-  const hovering = useRef(false);
-  const rafId = useRef<number | null>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
-    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-    const tick = () => {
-      // сглаживание: при ховере быстрее, вне — плавнее
-      const k = hovering.current ? 0.14 : 0.10;
-
-      current.current.x = lerp(current.current.x, target.current.x, k);
-      current.current.y = lerp(current.current.y, target.current.y, k);
-
-      // переводим нормализованные координаты в %
-      const px = `${(clamp01(current.current.x) * 100).toFixed(2)}%`;
-      // y допускает отрицательные значения (свет реально “над” карточкой)
-      const py = `${(current.current.y * 100).toFixed(2)}%`;
-
-      setVars((v) => ({ ...v, '--x': px, '--y': py }));
-      rafId.current = requestAnimationFrame(tick);
-    };
-
-    rafId.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafId.current) cancelAnimationFrame(rafId.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const onMove = (e: MouseEvent) => {
-      if (!hovering.current) return;
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const y = (e.clientY - r.top) / r.height;
-      target.current.x = Math.max(0, Math.min(1, x));
-      // Чуть ограничим Y, чтобы не проваливалось за края
-      target.current.y = Math.max(0.02, Math.min(0.98, y));
-    };
-
-    const onEnter = () => {
-      hovering.current = true;
-      // плавно “спустим” свет на карточку и сделаем его ярче
-      setVars((v) => ({ ...v, '--a': '1' }));
-      // если были выше карточки — мягко направим в верхнюю треть
-      target.current = { x: current.current.x, y: 0.12 };
-    };
-
-    const onLeave = () => {
-      hovering.current = false;
-      // возвращаем свет над карточку и уменьшаем интенсивность
-      setVars((v) => ({ ...v, '--a': '0.45' }));
-      target.current = { x: 0.5, y: -0.2 };
-    };
-
-    el.addEventListener('mousemove', onMove, { passive: true });
-    el.addEventListener('mouseenter', onEnter);
-    el.addEventListener('mouseleave', onLeave);
-    return () => {
-      el.removeEventListener('mousemove', onMove);
-      el.removeEventListener('mouseenter', onEnter);
-      el.removeEventListener('mouseleave', onLeave);
-    };
-  }, []);
-
-  const s: CSSProperties = vars as CSSProperties;
-
-  return (
-    <motion.article
-      ref={ref}
-      style={s}
-      initial={{ y: 20, opacity: 0 }}
-      whileInView={{ y: 0, opacity: 1 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ delay: index * 0.08, duration: 0.5, ease: 'easeOut' }}
-      className={[
-        'relative rounded-2xl p-5 md:p-6',
-        'border border-white/10 glass',
-        'shadow-[0_10px_40px_-18px_rgba(0,0,0,.5)]',
-        'transition-all duration-300',
-        'hover:-translate-y-1 hover:shadow-[0_25px_80px_-35px_rgba(59,130,246,.45)]',
-        'bg-gradient-to-br from-white/[.02] to-white/[.03]',
-        // Слой подсветки: большой радиус, чтобы быть видимым над карточкой при отрицательном Y
-        "before:content-[''] before:absolute before:inset-0 before:rounded-2xl before:pointer-events-none",
-        "before:[background:radial-gradient(360px_240px_at_var(--x)_var(--y),rgba(255,255,255,0.12),transparent_65%)]",
-        // Альфа управляется переменной и плавно меняется между состояниями
-        'before:opacity-[var(--a)] before:transition-[opacity] before:duration-300',
-      ].join(' ')}
-    >
-      {/* company */}
-      <div className="flex items-center gap-3 mb-3">
-        {data.logo ? (
-          <img
-            src={data.logo}
-            alt={`${data.company} logo`}
-            className="h-6 w-auto opacity-80"
-            draggable={false}
-          />
-        ) : (
-          <span className="text-xs uppercase tracking-widest text-white/60">
-            {data.company}
-          </span>
-        )}
-      </div>
-
-      {/* quote */}
-      <blockquote className="text-[15px] leading-relaxed text-white/90">
-        “{data.quote}”
-      </blockquote>
-
-      {/* footer */}
-      <div className="mt-5 flex items-center gap-3">
-        {data.avatar ? (
-          <img
-            src={data.avatar}
-            alt={data.author}
-            className="size-9 rounded-full border border-white/15 object-cover"
-            draggable={false}
-          />
-        ) : (
-          <div className="size-9 rounded-full border border-white/15 grid place-items-center text-sm text-white/70">
-            {initials(data.author)}
-          </div>
-        )}
-        <div className="min-w-0">
-          <div className="text-sm font-medium">{data.author}</div>
-          <div className="text-xs text-white/60 truncate">
-            {data.role} • {data.company}
-          </div>
-        </div>
-
-        {data.rating ? (
-          <div className="ml-auto flex items-center gap-1 text-amber-300">
-            {Array.from({ length: data.rating }).map((_, i) => (
-              <Star key={i} />
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </motion.article>
-  );
-}
-
-/* ------------------------------ UI bits ------------------------------ */
-
-function Star() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-4 fill-current drop-shadow-[0_2px_8px_rgba(251,191,36,.35)]"
-      aria-hidden
-    >
-      <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21z" />
-    </svg>
-  );
-}
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 }
