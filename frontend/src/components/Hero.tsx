@@ -118,22 +118,24 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* бесшовная лента иконок на всю ширину, без затемнений */}
-      <div className="absolute left-0 right-0 -bottom-8 z-10">
-        <LogoLoop
-          logos={techLogos}
-          speed={120}
-          direction="left"
-          logoHeight={36}
-          gap={40}
-          pauseOnHover
-          scaleOnHover
-          fadeOut={false}                         // без затемнений
-          width="100vw"                           // на всю ширину окна
-          className="w-screen mx-[calc(50%-50vw)]" // прорыв из контейнера
-          ariaLabel="Technology stack"
-        />
-      </div>
+
+{/* бесшовная лента иконок на всю ширину, без затемнений */}
+<div className="absolute left-0 right-0 -bottom-8 z-10">
+  <LogoLoop
+    logos={techLogos}
+    speed={120}
+    direction="left"
+    logoHeight={36}
+    gap={40}
+    pauseOnHover
+    scaleOnHover
+    fadeOut={false}
+    width="100dvw"                 // вместо 100vw
+    className="full-bleed"         // вместо w-screen + mx-[calc(50%-50vw)]
+    ariaLabel="Technology stack"
+  />
+</div>
+
     </section>
   );
 }

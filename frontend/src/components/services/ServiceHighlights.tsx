@@ -11,13 +11,7 @@ import {
   Rocket,
 } from 'lucide-react';
 
-type IconMapKey =
-  | 'workflow'
-  | 'palette'
-  | 'monitor'
-  | 'gauge'
-  | 'sparkles'
-  | 'rocket';
+type IconMapKey = 'workflow' | 'palette' | 'monitor' | 'gauge' | 'sparkles' | 'rocket';
 
 const ICONS: Record<IconMapKey, React.ComponentType<{ size?: number }>> = {
   workflow: Workflow,
@@ -59,7 +53,6 @@ export default function ServiceHighlights({
 
   return (
     <section className="oc-section px-6 md:px-16 section-soft" style={vars}>
-
       <div className="max-w-[1200px] mx-auto">
         <p className="text-sm text-white/60">{subtitle}</p>
         <h2 className="text-3xl md:text-4xl font-semibold mt-1">{title}</h2>
@@ -67,7 +60,14 @@ export default function ServiceHighlights({
         <div className="hlx-grid grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
           {list.map(({ title: t, desc, icon }, i) => {
             const Icon = icon ? ICONS[icon] : undefined;
-            return <Tile key={`${t}-${i}`} title={t} desc={desc} icon={Icon ? <Icon size={16} /> : null} />;
+            return (
+              <Tile
+                key={`${t}-${i}`}
+                title={t}
+                desc={desc}
+                icon={Icon ? <Icon size={16} /> : null}
+              />
+            );
           })}
         </div>
       </div>
@@ -87,10 +87,14 @@ function Tile({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [ripKey, setRipKey] = useState(0);
+  const [hovering, setHovering] = useState(false);
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = cardRef.current;
     if (!el) return;
+    // обновляем координаты только когда реально ховерим,
+    // чтобы при уходе курсора они не «прыгали» в центр
+    if (!hovering) return;
     const r = el.getBoundingClientRect();
     const mx = ((e.clientX - r.left) / r.width) * 100;
     const my = ((e.clientY - r.top) / r.height) * 100;
@@ -98,15 +102,18 @@ function Tile({
     el.style.setProperty('--my', `${my.toFixed(2)}%`);
   };
 
+  const onEnter = () => {
+    setHovering(true);
+  };
+
   const onLeave = () => {
-    const el = cardRef.current;
-    if (!el) return;
-    el.style.setProperty('--mx', '50%');
-    el.style.setProperty('--my', '50%');
+    setHovering(false); // ← сразу гасим свечение (opacity: 0), позицию НЕ трогаем
+    // Никаких setProperty('--mx/--my', '50%') — ничего не «едет» к центру
   };
 
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    onMove(e);
+    // обновим координаты, чтоб ripple стартовал из точки клика
+    if (hovering) onMove(e);
     setRipKey((k) => k + 1);
   };
 
@@ -114,6 +121,7 @@ function Tile({
     <article
       ref={cardRef}
       className="hlx-card group"
+      onPointerEnter={onEnter}
       onPointerMove={onMove}
       onPointerLeave={onLeave}
       onPointerDown={onDown}
@@ -121,7 +129,14 @@ function Tile({
     >
       {/* FX layer */}
       <div aria-hidden className="hlx-fx">
-        <div className="hlx-spot" />
+        {/* спотлайт: при отсутствии ховера принудительно скрываем без «поездки» к центру */}
+        <div
+          className="hlx-spot"
+          style={{
+            opacity: hovering ? undefined : 0,
+            transition: 'opacity 100ms ease', // быстрое гашение
+          }}
+        />
         <div className="hlx-orbit">
           <span className="hlx-comet a" />
           <span className="hlx-comet b" />

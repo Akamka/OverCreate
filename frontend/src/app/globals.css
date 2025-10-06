@@ -66,26 +66,6 @@ body::after {
 *::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.25); border-radius:999px; }
 *::-webkit-scrollbar-track{ background:transparent; }
 
-
-/*! Лочу горизонтальный скрол */
-/* никогда не даём ширине «убежать» за экран */
-html, body {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: clip; /* лучше, чем hidden: не ломает sticky */
-}
-
-/* на всякий случай для старых браузеров */
-@supports not (overflow-x: clip) {
-  html, body { overflow-x: hidden; }
-}
-
-/* полезные дефолты */
-* { box-sizing: border-box; }
-img, video { max-width: 100%; height: auto; }
-
-
-
 /* =========================
    Премиальный фон (Aurora Silk)
    ========================= */
@@ -2475,6 +2455,42 @@ html, body {
 
 
 
+/* === FIX: убираем горизонтальный скролл при Lenis и 100vw === */
+
+/* 1) Больше НЕ ограничиваем корень 100vw (это и даёт «утечку» вправо) */
+html, body {
+  max-width: none !important;
+}
+
+/* 2) Жёстко клипуем по оси X на современных движках, иначе — hide */
+@supports (overflow: clip) {
+  html, body { overflow-x: clip !important; }
+}
+@supports not (overflow: clip) {
+  html, body { overflow-x: hidden !important; }
+}
+
+/* 3) Перехватываем tailwind-овский w-screen (== 100vw) и любые ручные 100vw */
+:where(.w-screen){ width: 100dvw !important; }           /* Tailwind */
+:where(.min-w-screen){ min-width: 100dvw !important; }
+:where(.max-w-screen){ max-width: 100dvw !important; }
+
+/* подстраховка на инлайны/чужие компоненты */
+*[style*="width: 100vw"]  { width: 100dvw !important; }
+*[style*="min-width: 100vw"]{ min-width: 100dvw !important; }
+*[style*="max-width: 100vw"]{ max-width: 100dvw !important; }
+
+/* 4) Абсолютные декоративные слои (типа .oc-aurora inset:-8%) не расширяют страницу */
+.oc-bg-root,
+.oc-bg-layer,
+.oc-aurora,
+.oc-sheen {
+  contain: layout paint;           /* не «толкают» layout по X */
+  max-width: 100%;
+}
+
+/* 5) На случай широких медиа в потоке */
+img, video, canvas, svg { max-width: 100%; height: auto; }
 
 
 

@@ -298,9 +298,6 @@ export default function ServicePortfolio({
           style={{
             marginLeft: 'calc(var(--pf-bleed, 0px) * -1)',
             marginRight: 'calc(var(--pf-bleed, 0px) * -1)',
-            // ❌ УБИРАЕМ отрицательный marginBottom, он «съедает» низ страницы
-            // marginBottom: 'calc(var(--pf-bleed, 0px) * -1)',
-            // ✅ Делаем безопасную компенсацию высоты паддингом
             paddingBottom: 'var(--pf-bleed, 0px)',
             overflow: 'visible',
             ...bleedVars,
@@ -369,12 +366,12 @@ export default function ServicePortfolio({
           <div
             ref={viewportRef}
             className="no-scrollbar pf-viewport"
-            data-lenis-prevent=""                /* ← не даём Lenis перехватывать горизонтальную прокрутку */
+            /* Раньше было data-lenis-prevent — блокировало wheel вертикальный.
+               Оставляем только тач: горизонтальные свайпы работают, колесо — скроллит страницу. */
+            data-lenis-prevent-touch=""
             style={{
               paddingLeft: 'var(--pf-bleed)',
               paddingRight: 'var(--pf-bleed)',
-              // ❌ убрать — из-за него суммарная высота считалась неверно
-              // paddingBottom: 'var(--pf-bleed)',
               overflowX: 'auto',
               overflowY: 'visible',
               scrollBehavior: 'smooth',
@@ -400,8 +397,14 @@ export default function ServicePortfolio({
       </div>
 
       {openedId != null && (
-        <PortfolioModal id={openedId} onClose={() => setOpenedId(null)} />
+        <PortfolioModal
+          id={openedId}
+          onClose={() => setOpenedId(null)}
+          accFrom={accentFrom}
+          accTo={accentTo}
+        />
       )}
+
     </section>
   );
 }

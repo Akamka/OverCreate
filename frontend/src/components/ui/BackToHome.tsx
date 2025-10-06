@@ -1,19 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
- * Фиксированная кнопка «На главную», автоподстраивает цвета под текущую .oc-section.
- * Стрелка — SVG, идеально центрирована в круге.
+ * Fixed “Back to Home” button.
+ * - Always visible (rendered via portal to document.body).
+ * - Auto-picks colors from the most visible `.oc-section` using CSS vars --acc1/--acc2 (fallbacks provided).
  */
 export default function BackToHome({
   href = '/',
   className,
   sectionSelector = '.oc-section',
-  fallbackAcc1 = '168 85 247',
-  fallbackAcc2 = '34 197 94',
+  fallbackAcc1 = '168 85 247', // 'r g b'
+  fallbackAcc2 = '34 197 94',  // 'r g b'
 }: {
   href?: string;
   className?: string;
@@ -21,9 +23,12 @@ export default function BackToHome({
   fallbackAcc1?: string; // 'r g b'
   fallbackAcc2?: string; // 'r g b'
 }) {
+  const [mounted, setMounted] = useState(false);
   const [acc1, setAcc1] = useState<string>(fallbackAcc1);
   const [acc2, setAcc2] = useState<string>(fallbackAcc2);
   const ioRef = useRef<IntersectionObserver | null>(null);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const sections = Array.from(document.querySelectorAll(sectionSelector)) as HTMLElement[];
@@ -58,7 +63,7 @@ export default function BackToHome({
     sections.forEach((el) => io.observe(el));
     ioRef.current = io;
 
-    // стартовые цвета
+    // initial colors
     pickAccents(sections[0]);
 
     return () => io.disconnect();
@@ -71,7 +76,7 @@ export default function BackToHome({
     [acc1, acc2]
   );
 
-  return (
+  const Button = (
     <div
       className={clsx('fixed left-3 top-3 md:left-6 md:top-6 z-[1000]', className)}
       style={{ pointerEvents: 'none' }}
@@ -88,9 +93,9 @@ export default function BackToHome({
           'active:scale-[.98]'
         )}
         style={{ pointerEvents: 'auto' }}
-        aria-label="На главную"
+        aria-label="Back to Home"
       >
-        {/* Кружок с идеальной центровкой стрелки */}
+        {/* Circle with arrow */}
         <span
           className="shrink-0 grid h-5 w-5 place-items-center rounded-full shadow-[0_0_18px_rgba(0,0,0,.25)] transition-transform duration-300 group-hover:-translate-x-0.5"
           style={{ backgroundImage: `linear-gradient(135deg, rgb(${acc1}), rgb(${acc2}))` }}
@@ -107,22 +112,25 @@ export default function BackToHome({
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            {/* левый «chevron» + короткая линия — визуально ровно по центру */}
             <polyline points="14 6 8 12 14 18" />
             <line x1="9" y1="12" x2="16" y2="12" />
           </svg>
         </span>
 
         <span className="transition-colors duration-300" style={{ color: 'rgba(255,255,255,.95)' }}>
-          На главную
+          Back to Home
         </span>
       </Link>
 
-      {/* мягкая подсветка позади */}
+      {/* Soft glow behind */}
       <span
         className="absolute -z-10 inset-0 blur-2xl rounded-2xl opacity-40 transition-opacity duration-300"
         style={{ background: ringGlow }}
       />
     </div>
   );
+
+  // Render via portal so position:fixed is relative to viewport, not any transformed parent
+  if (!mounted) return null;
+  return createPortal(Button, document.body);
 }
