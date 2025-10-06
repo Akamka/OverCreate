@@ -31,7 +31,7 @@ export default function HomeClient({ items }: { items: Portfolio[] }) {
       {/* Contact / Order */}
       <section id="contact" className="py-20 px-6 md:px-16">
         <div className="max-w-[1200px] mx-auto">
-          <h2 className="text-3xl font-semibold mb-6">Tell us about your project</h2>
+          
 
           <OrderForm
             service={DEFAULT_SERVICE}
@@ -41,8 +41,8 @@ export default function HomeClient({ items }: { items: Portfolio[] }) {
 
           <div className="mt-6 text-neutral-400 text-sm">
             Or email us:{" "}
-            <a className="underline" href="mailto:hello@overcreate.studio">
-              hello@overcreate.studio
+            <a className="underline">
+              overcreate.studio@gmail.com
             </a>
           </div>
         </div>

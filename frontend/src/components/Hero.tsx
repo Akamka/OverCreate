@@ -26,6 +26,15 @@ export default function Hero() {
     }
   }, []);
 
+  // плавный скролл к #services
+  const goToServices = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    const el = document.getElementById('services');
+    if (el) {
+      e.preventDefault();
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
   // большой набор иконок; без href → не кликаются
   const techLogos: LogoItem[] = [
     // web / UI design
@@ -100,9 +109,16 @@ export default function Hero() {
         </p>
 
         <div className="mt-10 flex gap-4">
+          {/* Лёгкая анимация: при ховере — поднимается, усиливается тень;
+              при нажатии — чуть опускается. Плюс плавный скролл к #services */}
           <Link
             href="#services"
-            className="rounded-2xl bg-white text-black px-6 py-3 font-medium hover:bg-neutral-200"
+            onClick={goToServices}
+            className="rounded-2xl bg-white text-black px-6 py-3 font-medium shadow-sm
+                       transition-transform duration-200 ease-out will-change-transform
+                       hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            aria-label="View services"
           >
             View services
           </Link>
@@ -110,7 +126,11 @@ export default function Hero() {
           <Link
             href="#contact"
             onClick={goToContact}
-            className="rounded-2xl border border-white/20 px-6 py-3 font-medium hover:border-white/40"
+            className="rounded-2xl border border-white/20 px-6 py-3 font-medium
+                       transition-transform duration-200 ease-out will-change-transform
+                       hover:-translate-y-0.5 hover:border-white/40 hover:shadow
+                       active:translate-y-0
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
             aria-label="Contact us"
           >
             Contact us
@@ -118,24 +138,22 @@ export default function Hero() {
         </div>
       </div>
 
-
-{/* бесшовная лента иконок на всю ширину, без затемнений */}
-<div className="absolute left-0 right-0 -bottom-8 z-10">
-  <LogoLoop
-    logos={techLogos}
-    speed={120}
-    direction="left"
-    logoHeight={36}
-    gap={40}
-    pauseOnHover
-    scaleOnHover
-    fadeOut={false}
-    width="100dvw"                 // вместо 100vw
-    className="full-bleed"         // вместо w-screen + mx-[calc(50%-50vw)]
-    ariaLabel="Technology stack"
-  />
-</div>
-
+      {/* бесшовная лента иконок на всю ширину, без затемнений */}
+      <div className="absolute left-0 right-0 -bottom-8 z-10">
+        <LogoLoop
+          logos={techLogos}
+          speed={120}
+          direction="left"
+          logoHeight={36}
+          gap={40}
+          pauseOnHover
+          scaleOnHover
+          fadeOut={false}
+          width="100dvw"
+          className="w-screen mx-[calc(50%-50vw)]"
+          ariaLabel="Technology stack"
+        />
+      </div>
     </section>
   );
 }

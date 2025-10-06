@@ -68,18 +68,12 @@ function Badge({
 function StatusBadge({ value }: { value: string }) {
   const label = (value || '').replaceAll('_', ' ').toLowerCase();
 
-  // base pill
   const base =
-    'inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold ' +
-    'shadow-[0_6px_18px_-8px_rgba(0,0,0,.55)] ' +
-    'border';
+    'inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold shadow-[0_6px_18px_-8px_rgba(0,0,0,.55)] border';
 
-  // tones
   const tone =
     value === 'in_progress'
-      ? // THE unified color: blue → purple (site accents)
-        'text-indigo-900 border-white/10 ' +
-        'bg-[linear-gradient(135deg,rgb(var(--acc1)),rgb(var(--acc2)))]'
+      ? 'text-indigo-900 border-white/10 bg-[linear-gradient(135deg,rgb(var(--acc1)),rgb(var(--acc2)))]'
       : value === 'done'
       ? 'text-emerald-950 border-emerald-400/30 bg-gradient-to-r from-emerald-300 to-teal-300'
       : value === 'paused'
@@ -262,8 +256,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="ms-auto flex items-center gap-2">
+              {/* ⬇️ ЕДИНАЯ КНОПКА Support / New order, ведёт на CTA секцию главной */}
               <Link
-                href="/#order"
+                href="/#contact"        // если ваша CTA имеет другой id, поменяйте здесь
+                aria-label="Support or New order"
                 className={[
                   'px-4 py-2 rounded-xl font-semibold text-black',
                   'bg-[linear-gradient(135deg,rgb(var(--acc1)),rgb(var(--acc2)))]',
@@ -271,17 +267,7 @@ export default function DashboardPage() {
                   liftButton,
                 ].join(' ')}
               >
-                New order
-              </Link>
-              <Link
-                href="/#contacts"
-                className={[
-                  'px-4 py-2 rounded-xl border border-white/20 bg-white/5',
-                  'shadow-[0_8px_24px_-16px_rgba(0,0,0,.6)]',
-                  liftButton,
-                ].join(' ')}
-              >
-                Support
+                Support / New order
               </Link>
             </div>
           </div>
@@ -356,7 +342,6 @@ export default function DashboardPage() {
                       </div>
 
                       <div className="shrink-0">
-                        {/* unified status pill */}
                         <StatusBadge value={p.status} />
                       </div>
                     </div>

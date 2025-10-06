@@ -18,225 +18,177 @@ const ALL: Testimonial[] = [
       'OverCreate combined motion, brand and engineering into one consistent story. Clear process, clean UI — zero chaos.',
     author: 'Alex Johnson',
     role: 'Product Lead, Helix',
-    avatar: '/avatars/alex.jpg',
+    avatar: '/avatars/Alex-Johnson.jpg',
   },
   {
     text:
       'We shipped a full redesign in weeks. Fast feedback loops, thoughtful decisions, strong craft.',
-    author: 'Maria Chen',
+    author: 'Maria-Chen',
     role: 'Marketing Director, Nova',
-    avatar: '/avatars/maria.jpg',
+    avatar: '/avatars/Maria-Chen.jpg',
   },
   {
     text:
       'Design language, component system and code quality — everything aligned. Launch day was boring (the best kind).',
     author: 'Igor Petrov',
     role: 'Founder, Loop',
-    avatar: '/avatars/igor.jpg',
+    avatar: '/avatars/Avatar-1-girl.jpg',
   },
   {
     text:
       'Great communication and clear milestones. Modern stack, smooth delivery, zero headaches.',
     author: 'Jamie Lee',
     role: 'CEO, Orbit',
-    avatar: '/avatars/jamie.jpg',
+    avatar: '/avatars/Jamie-Lee.jpg',
   },
   {
     text:
       'Pixel-perfect visuals, performance is tight, codebase is clean. Team you can trust.',
     author: 'Nora White',
     role: 'COO, Finch',
-    avatar: '/avatars/nora.jpg',
+    avatar: '/avatars/Nora-White.jpg',
   },
   {
     text:
       'Fast iterations and high attention to detail. Strong partners for long-term projects.',
     author: 'David Ruiz',
     role: 'Head of Product, Lumen',
-    avatar: '/avatars/david.jpg',
+    avatar: '/avatars/David-Ruiz.jpg',
   },
   {
     text:
       'Great synergy between design and development. Hand-off is painless, docs are tidy.',
     author: 'Greg Berg',
     role: 'CTO, Beacon',
-    avatar: '/avatars/greg.jpg',
+    avatar: '/avatars/Greg-Berg.jpg',
   },
   {
     text:
       'From brief to launch — clear, fast, reliable. Highly recommend.',
     author: 'Olivia Park',
     role: 'Design Lead, Colect',
-    avatar: '/avatars/olivia.jpg',
+    avatar: '/avatars/Olivia-Park.jpg',
   },
     {
     text:
       'Clear communication, quick iterations, and a solid design system. Shipping with confidence became our default.',
     author: 'Sara Collins',
     role: 'Product Manager, Kite',
-    avatar: '/avatars/sara.jpg',
+    avatar: '/avatars/Sara-Collins.jpg',
   },
   {
     text:
       'From rough idea to polished launch in record time. The team was proactive and detail-oriented throughout.',
     author: 'Michael Young',
     role: 'Founder, Flux',
-    avatar: '/avatars/michael.jpg',
+    avatar: '/avatars/Michael-Young.jpg',
   },
   {
     text:
       'They translated complex requirements into a clean UX with zero friction. Dev handoff was the smoothest we had.',
     author: 'Priya Patel',
     role: 'Head of Design, Vertex',
-    avatar: '/avatars/priya.jpg',
+    avatar: '/avatars/Priya-Patel.jpg',
   },
   {
     text:
       'Performance, accessibility, and visual quality — all first-class. We finally look like the product we are.',
     author: 'Liam Turner',
     role: 'CTO, Beacon Labs',
-    avatar: '/avatars/liam.jpg',
+    avatar: '/avatars/Liam-Turner.jpg',
   },
   {
     text:
       'Consistent delivery week after week. Strong opinions when needed, and always backed by data.',
     author: 'Emily Rogers',
     role: 'Growth Lead, North',
-    avatar: '/avatars/emily.jpg',
+    avatar: '/avatars/Emily-Rogers.jpg',
   },
   {
     text:
       'Their component library saved our team months. Clear docs, reliable patterns, easy to extend.',
     author: 'Tom Williams',
     role: 'Engineering Manager, Delta',
-    avatar: '/avatars/tom.jpg',
+    avatar: '/avatars/Tom-Williams.jpg',
   },
   {
     text:
       'Sharp visuals and production-ready code in one package. We shipped the rebrand without a single surprise.',
     author: 'Julia Novak',
     role: 'Brand Director, Orbit',
-    avatar: '/avatars/julia.jpg',
+    avatar: '/avatars/Julia-Novak.jpg',
   },
   {
     text:
       'Every milestone was hit on time. Transparent planning and zero last-minute chaos.',
     author: 'Daniel Kim',
     role: 'Operations Lead, Lumen',
-    avatar: '/avatars/daniel.jpg',
+    avatar: '/avatars/Daniel-Kim.jpg',
   },
   {
     text:
       'They elevated our product with thoughtful motion. Subtle, purposeful, and performant.',
     author: 'Ava Morales',
     role: 'Design Lead, Hubble',
-    avatar: '/avatars/ava.jpg',
+    avatar: '/avatars/Ava-Morales.jpg',
   },
   {
     text:
       'Our admin UX went from clunky to obvious. Support tickets dropped immediately after launch.',
     author: 'Victor Almeida',
     role: 'Customer Success, Pulse',
-    avatar: '/avatars/victor.jpg',
+    avatar: '/avatars/Victor-Almeida.jpg',
   },
   {
     text:
       'Great partner for a fast-moving startup. Pragmatic decisions, crisp execution, zero ego.',
     author: 'Zoe Fisher',
     role: 'CEO, Nook',
-    avatar: '/avatars/zoe.jpg',
+    avatar: '/avatars/Zoe-Fisher.jpg',
   },
   {
     text:
       'They built a robust design system that scales. New features feel native instead of bolted on.',
     author: 'Noah Bennett',
     role: 'VP Product, Alloy',
-    avatar: '/avatars/noah.jpg',
+    avatar: '/avatars/Noah-Bennett.jpg',
   },
   {
     text:
       'The web experience finally matches our brand. Page speed is excellent and the details sing.',
     author: 'Hannah Schultz',
     role: 'Marketing Lead, Aurora',
-    avatar: '/avatars/hannah.jpg',
+    avatar: '/avatars/Hannah-Schultz.jpg',
   },
   {
     text:
       'Clear specs, clean pull requests, and thoughtful reviews. Collaboration felt effortless.',
     author: 'Ethan Bryant',
     role: 'Senior Engineer, Core',
-    avatar: '/avatars/ethan.jpg',
+    avatar: '/avatars/Ethan-Bryant.jpg',
   },
   {
     text:
       'Prototype on Monday, validated by Friday. They kept us focused on outcomes, not outputs.',
     author: 'Maya Singh',
     role: 'Research Lead, Atlas',
-    avatar: '/avatars/maya.jpg',
+    avatar: '/avatars/Maya-Singh.jpg',
   },
   {
     text:
       'Motion guidelines and micro-interactions made our product feel alive — without hurting performance.',
     author: 'Lucas Romero',
     role: 'Design Engineer, Helio',
-    avatar: '/avatars/lucas.jpg',
+    avatar: '/avatars/Lucas-Romero.jpg',
   },
   {
     text:
       'We migrated to a modern stack with zero downtime. Monitoring and rollout were top-notch.',
     author: 'Isabella Costa',
     role: 'Platform Lead, Merge',
-    avatar: '/avatars/isabella.jpg',
+    avatar: '/avatars/Isabella-Costa.jpg',
   },
-  {
-    text:
-      'They challenged our assumptions and made the product simpler. Our NPS went up within weeks.',
-    author: 'Owen Clarke',
-    role: 'Head of Product, Finch',
-    avatar: '/avatars/owen.jpg',
-  },
-  {
-    text:
-      'Attention to states, empty screens, and edge cases. It feels like they lived in our product for years.',
-    author: 'Keira Walsh',
-    role: 'UX Manager, Parallel',
-    avatar: '/avatars/keira.jpg',
-  },
-  {
-    text:
-      'Their QA is relentless in the best way. Launch day was… boring — just how it should be.',
-    author: 'Ryan Cooper',
-    role: 'Program Manager, Nimbus',
-    avatar: '/avatars/ryan.jpg',
-  },
-  {
-    text:
-      'A partner who cares about business goals, not just pixels. We hit our conversion targets early.',
-    author: 'Amelia Wright',
-    role: 'CRO Lead, Harbor',
-    avatar: '/avatars/amelia.jpg',
-  },
-  {
-    text:
-      'They turned our brand book into a living system: tokens, themes, and code we actually use.',
-    author: 'Leo Martins',
-    role: 'Design Systems, Quark',
-    avatar: '/avatars/leo.jpg',
-  },
-  {
-    text:
-      'Fast, friendly, and deeply competent. The best vendor relationship we’ve had in years.',
-    author: 'Chloe Nguyen',
-    role: 'COO, Stride',
-    avatar: '/avatars/chloe.jpg',
-  },
-  {
-    text:
-      'We finally have a site we’re proud to send to investors. The craft shows on every page.',
-    author: 'Miles Carter',
-    role: 'Founder, Field',
-    avatar: '/avatars/miles.jpg',
-  },
+
 ];
 
 /* ======== детерминированный «рандом» (одинаковый на SSR и CSR) ======== */

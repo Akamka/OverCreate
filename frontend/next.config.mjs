@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    i18n: {
+    locales: ['uk', 'en', 'pl', 'ru'],
+    defaultLocale: 'en',            // выберите свою дефолтную
+    localeDetection: true,
+  },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: "http://127.0.0.1:8080/api/:path*" },
