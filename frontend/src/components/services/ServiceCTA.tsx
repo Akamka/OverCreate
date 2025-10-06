@@ -300,11 +300,6 @@ export default function ServiceCTA({
             <span className="cta3-topbar-fill" />
           </div>
 
-          {/* vertical scroll progress rail */}
-          <div className="cta3-rail" aria-hidden>
-            <span className="cta3-rail-fill" />
-          </div>
-
           <form className="cta3-grid" onSubmit={onSubmit} noValidate>
             <InputField
               id="first"

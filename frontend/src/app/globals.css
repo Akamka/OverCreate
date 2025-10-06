@@ -66,6 +66,26 @@ body::after {
 *::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.25); border-radius:999px; }
 *::-webkit-scrollbar-track{ background:transparent; }
 
+
+/*! Лочу горизонтальный скрол */
+/* никогда не даём ширине «убежать» за экран */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip; /* лучше, чем hidden: не ломает sticky */
+}
+
+/* на всякий случай для старых браузеров */
+@supports not (overflow-x: clip) {
+  html, body { overflow-x: hidden; }
+}
+
+/* полезные дефолты */
+* { box-sizing: border-box; }
+img, video { max-width: 100%; height: auto; }
+
+
+
 /* =========================
    Премиальный фон (Aurora Silk)
    ========================= */

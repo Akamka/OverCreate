@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" className="h-full">
+    <html lang="en" className="h-full">
       <body className={`${inter.className} h-full bg-[#0A0A0F] text-neutral-50 antialiased`}>
         {/* Статичный фон (НЕ анимируем, чтобы не «мелькал») */}
         <PremiumBackground />
