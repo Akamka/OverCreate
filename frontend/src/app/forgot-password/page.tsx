@@ -4,6 +4,12 @@ import { useState, type CSSProperties } from 'react';
 import PremiumBackground from '@/components/PremiumBackground';
 import { API_URL } from '@/lib/api';
 
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+  alternates: { canonical: undefined as unknown as undefined },
+};
+
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);

@@ -13,6 +13,13 @@ import { useMe, useProject, useMessages, updateProgress } from '@/lib/hooks';
 
 type HttpLikeError = Error & { status?: number };
 
+
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+  alternates: { canonical: null as unknown as undefined },
+};
+
+
 /* ============ helpers ============ */
 
 function SafeClientName(p: unknown): string | undefined {
@@ -65,6 +72,8 @@ function MetaTile({ label, value }: { label: string; value?: string }) {
     </div>
   );
 }
+
+
 
 /* ============ page ============ */
 

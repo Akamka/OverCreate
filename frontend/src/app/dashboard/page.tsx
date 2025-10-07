@@ -12,6 +12,12 @@ import { useHydrated } from '@/lib/useHydrated';
 
 /* ================= helpers ================= */
 
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true },
+  alternates: { canonical: undefined as unknown as undefined },
+};
+
+
 function clamp01(n: number) {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, n));
