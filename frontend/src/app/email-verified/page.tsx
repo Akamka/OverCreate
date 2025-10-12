@@ -8,10 +8,6 @@ import PremiumBackground from '@/components/PremiumBackground';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080/api';
 const ME_ENDPOINT = process.env.NEXT_PUBLIC_ME_ENDPOINT ?? '/me';
 
-export const metadata = {
-  robots: { index: false, follow: false, nocache: true },
-  alternates: { canonical: undefined as unknown as undefined },
-};
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';

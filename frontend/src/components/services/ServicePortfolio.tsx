@@ -284,7 +284,7 @@ export default function ServicePortfolio({
 
   /* ------------------------------ render -------------------------------- */
   return (
-    <section className="oc-section section-soft" style={accVars as CSSProperties}>
+    <section id="portfolio"  className="oc-section section-soft" style={accVars as CSSProperties}>
       <div className="mx-auto max-w-[1200px] px-4 md:px-6">
         <div className="mb-6 md:mb-8">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white/90">

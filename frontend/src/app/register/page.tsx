@@ -12,10 +12,6 @@ type RegisterResponse = {
   mustVerify?: boolean;
 };
 
-export const metadata = {
-  robots: { index: false, follow: false, nocache: true },
-  alternates: { canonical: undefined as unknown as undefined },
-};
 
 export default function RegisterPage() {
   const router = useRouter();

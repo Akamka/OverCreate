@@ -5,3 +5,4 @@ export default {
     extend: {},
   },
 } satisfies Config
+

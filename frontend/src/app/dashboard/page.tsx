@@ -12,10 +12,7 @@ import { useHydrated } from '@/lib/useHydrated';
 
 /* ================= helpers ================= */
 
-export const metadata = {
-  robots: { index: false, follow: false, nocache: true },
-  alternates: { canonical: undefined as unknown as undefined },
-};
+
 
 
 function clamp01(n: number) {

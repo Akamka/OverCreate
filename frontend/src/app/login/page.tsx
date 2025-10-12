@@ -5,10 +5,7 @@ import { useMemo, useState, useEffect, type CSSProperties } from 'react';
 import PremiumBackground from '@/components/PremiumBackground';
 import { API_URL, setToken } from '@/lib/api';
 
-export const metadata = {
-  robots: { index: false, follow: false, nocache: true },
-  alternates: { canonical: undefined as unknown as undefined },
-};
+
 
 
 type LoginResponse = {

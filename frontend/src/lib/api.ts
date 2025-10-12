@@ -168,6 +168,8 @@ export async function fetchPortfolioByService(
 }
 
 
+import type { Portfolio as PortfolioItem } from '@/types/portfolio';
+
 export async function fetchPortfolioItem(id: number) {
   return apiGet<PortfolioItem>(`/portfolio/${id}`);
 }

@@ -8,18 +8,32 @@ import ServiceTheme from './ServiceTheme';
 type Props = { slug: string; title: string; desc: string; acc1: RGB; acc2: RGB };
 
 export default function ServiceHero({ slug, title, desc, acc1, acc2 }: Props) {
-  // мягкие акценты (и для потомков через CSS-переменные)
   const vars: CSSVars = { '--acc1': acc1.join(' '), '--acc2': acc2.join(' ') };
 
-  
-
-  // продублируем цвета в виде строк — используем прямо в inline-стилях,
-  // чтобы исключить любые «залипшие» дефолты
   const c1 = `rgb(${acc1.join(' ')})`;
   const c2 = `rgb(${acc2.join(' ')})`;
 
   const cardRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+
+  // ---------- плавный скролл к якорю ----------
+  const scrollToId = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // если наверху фикс-бар, у секции должен стоять класс tailwind: scroll-mt-24 (см. пункт 2)
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const goToPricing = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    scrollToId('pricing');
+  }, [scrollToId]);
+
+  const goToPortfolio = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    scrollToId('portfolio');
+  }, [scrollToId]);
+  // --------------------------------------------
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const stage = stageRef.current;
@@ -29,10 +43,10 @@ export default function ServiceHero({ slug, title, desc, acc1, acc2 }: Props) {
     const nx = (e.clientX - r.left) / r.width;
     const ny = (e.clientY - r.top) / r.height;
 
-    const rx = (0.5 - ny) * 8;   // deg
-    const ry = (nx - 0.5) * 8;   // deg
-    const dx = (nx - 0.5) * 16;  // px
-    const dy = (ny - 0.5) * 12;  // px
+    const rx = (0.5 - ny) * 8;
+    const ry = (nx - 0.5) * 8;
+    const dx = (nx - 0.5) * 16;
+    const dy = (ny - 0.5) * 12;
 
     card.style.setProperty('--rx', `${rx.toFixed(2)}deg`);
     card.style.setProperty('--ry', `${ry.toFixed(2)}deg`);
@@ -50,13 +64,11 @@ export default function ServiceHero({ slug, title, desc, acc1, acc2 }: Props) {
   };
 
   return (
-    // key гарантирует перемонтирование при смене услуги
     <section
       key={`hero-${slug}-${acc1.join('_')}-${acc2.join('_')}`}
       className="oc-section px-6 md:px-16 relative"
       style={vars}
     >
-      {/* Мягкий фон, завязанный на --acc1/--acc2 */}
       <ServiceTheme />
 
       <div className="max-w-[1200px] mx-auto">
@@ -71,7 +83,6 @@ export default function ServiceHero({ slug, title, desc, acc1, acc2 }: Props) {
             <div className="hcard-shard a" />
             <div className="hcard-shard b" />
 
-            {/* Кольцо: цвета задаём напрямую из props */}
             <div className="hero-ring-wrap absolute -z-0 -top-36 -right-20 w-[520px] h-[520px] pointer-events-none">
               <div
                 className="hero-ring rounded-full blur-2xl"
@@ -108,10 +119,10 @@ export default function ServiceHero({ slug, title, desc, acc1, acc2 }: Props) {
               <p className="mt-4 text-neutral-300 max-w-2xl">{desc}</p>
 
               <div className="mt-8 flex gap-3">
-                <Link href="#pricing" className="btn-acc btn-acc-primary">
+                <Link href="#pricing" onClick={goToPricing} className="btn-acc btn-acc-primary">
                   Pricing
                 </Link>
-                <Link href="#portfolio" className="btn-acc btn-acc-outline">
+                <Link href="#portfolio" onClick={goToPortfolio} className="btn-acc btn-acc-outline">
                   Cases
                 </Link>
               </div>

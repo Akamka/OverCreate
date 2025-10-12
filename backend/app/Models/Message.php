@@ -11,7 +11,7 @@ class Message extends Model
 
     protected $fillable = ['project_id', 'sender_id', 'body'];
 
-    public function project()
+    public function project()   
     {
         return $this->belongsTo(Project::class);
     }
