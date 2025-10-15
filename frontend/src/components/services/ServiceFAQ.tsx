@@ -184,8 +184,9 @@ export default function ServiceFAQ({
   return (
     <section className="oc-section section-soft" style={vars}>
       <div className="max-w-[1000px] mx-auto px-5 md:px-8">
-        <p className="text-sm text-white/50">FAQ</p>
-        <h2 className="mt-1 text-3xl md:text-4xl font-semibold text-white/95">{title}</h2>
+        <h2 className="mt-1 text-3xl md:text-4xl font-semibold text-white/95">FAQ</h2>
+        <p className="text-sm text-white/50">{title}</p>
+        
 
         <div className="faq-list mt-6 rounded-2xl border border-white/10 overflow-hidden">
           {list.map(({ q, a }, i) => (

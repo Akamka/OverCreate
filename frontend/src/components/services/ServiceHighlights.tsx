@@ -54,8 +54,9 @@ export default function ServiceHighlights({
   return (
     <section className="oc-section px-6 md:px-16 section-soft" style={vars}>
       <div className="max-w-[1200px] mx-auto">
-        <p className="text-sm text-white/60">{subtitle}</p>
         <h2 className="text-3xl md:text-4xl font-semibold mt-1">{title}</h2>
+        <p className="text-sm text-white/60">{subtitle}</p>
+        
 
         <div className="hlx-grid grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
           {list.map(({ title: t, desc, icon }, i) => {

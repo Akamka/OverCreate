@@ -41,9 +41,15 @@ export default function HomeClient({ items }: { items: Portfolio[] }) {
 
           <div className="mt-6 text-neutral-400 text-sm">
             Or email us:{" "}
-            <a className="underline">
-              overcreate.studio@gmail.com
+
+            <a className="">
+                <br />+48 575 933 658 /  +380 969 901 003
             </a>
+
+            <a className="underline">
+              <br />overcreate.studio@gmail.com
+            </a>
+
           </div>
         </div>
       </section>

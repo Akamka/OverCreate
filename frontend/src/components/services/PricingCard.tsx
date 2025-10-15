@@ -28,17 +28,11 @@ type Props = {
 }
 
 /**
- * Орбиты, ripple, неоновая рамка и спотлайт — как у тебя.
- * Плюс:
- *  • контентная колонка flex → кнопка уезжает вниз за счёт mt-auto (ровная линия)
- *  • текст «Рекомендуем» менее яркий
- *  • фолбэк для кнопки: #contact, если tier.ctaHref не задан
+ * Орбиты, ripple, неоновая рамка и спотлайт.
+ * Плавный скролл к секции по якорю (#contact) на кнопке.
  */
 export default function PricingCard({ tier, accentFrom, accentTo, className }: Props) {
-  const vars: CSSVars = {
-    '--acc1': accentFrom.join(' '),
-    '--acc2': accentTo.join(' '),
-  }
+  const vars: CSSVars = { '--acc1': accentFrom.join(' '), '--acc2': accentTo.join(' ') }
 
   const bodyRef = useRef<HTMLDivElement>(null)
   const [rippleKey, setRippleKey] = useState(0)
@@ -49,10 +43,8 @@ export default function PricingCard({ tier, accentFrom, accentTo, className }: P
     const r = el.getBoundingClientRect()
     const nx = (e.clientX - r.left) / r.width
     const ny = (e.clientY - r.top) / r.height
-
     el.style.setProperty('--mx', `${(nx * 100).toFixed(2)}%`)
     el.style.setProperty('--my', `${(ny * 100).toFixed(2)}%`)
-
     const gx = (nx - 0.5) * 22
     const gy = (ny - 0.5) * 14
     el.style.setProperty('--gx', `${gx.toFixed(2)}px`)
@@ -74,13 +66,31 @@ export default function PricingCard({ tier, accentFrom, accentTo, className }: P
   }
 
   const ctaHref = tier.ctaHref ?? '#contact'
-  const ctaLabel = tier.ctaLabel ?? 'Оставить заявку'
+  const ctaLabel = tier.ctaLabel ?? 'Contact us'
+
+  // ПЛАВНЫЙ СКРОЛЛ: перехватываем клик по якорю
+  const handleCtaClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!ctaHref.startsWith('#')) return
+    e.preventDefault()
+
+    const id = ctaHref.slice(1)
+    const el = document.getElementById(id)
+
+    if (!el) {
+      // если секция ещё не в DOM — просто поставим хеш
+      window.location.hash = ctaHref
+      return
+    }
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+
+    // обновим адресную строку без перезагрузки
+    history.pushState(null, '', ctaHref)
+  }
 
   return (
-    <div
-      className={clsx('relative hcard hcard3d group h-full', className)}
-      style={vars as CSSProperties}
-    >
+    <div className={clsx('relative hcard hcard3d group h-full', className)} style={vars as CSSProperties}>
       <div
         ref={bodyRef}
         className="hcard-body relative p-7 md:p-8 overflow-visible min-h-[360px] prc-card h-full"
@@ -131,13 +141,12 @@ export default function PricingCard({ tier, accentFrom, accentTo, className }: P
 
         {tier.popular && (
           <div className="absolute top-3 right-4 z-20">
-            {/* делаем текст чуть мягче через inline color, чтобы перебить правило в .recommend-badge */}
             <span
               className="recommend-badge inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold tracking-wide shadow-md"
               style={{ color: 'rgba(255,255,255,.88)' }}
             >
               <Crown size={14} className="opacity-90" />
-              Рекомендуем
+              Top pick
             </span>
           </div>
         )}
@@ -172,6 +181,7 @@ export default function PricingCard({ tier, accentFrom, accentTo, className }: P
           <div className="mt-auto pt-6">
             <Link
               href={ctaHref}
+              onClick={handleCtaClick}
               className="btn-elev inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-black"
               style={{ background: 'linear-gradient(135deg, rgb(var(--acc1)), rgb(var(--acc2)))' }}
               aria-label={`Перейти к форме контакта (${tier.name})`}

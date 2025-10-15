@@ -41,7 +41,7 @@ function normalizeToThree(src?: PricingTier[]): PricingTier[] {
   if (base.length === 2) return [...base, FALLBACK[2]];
   return base;
 }
-
+// TODO
 export default function ServicePricing({
   pricing,
   accentFrom,
@@ -55,8 +55,8 @@ export default function ServicePricing({
     <section id="pricing" className="oc-section section-soft">
       <div className="max-w-[1280px] mx-auto px-5 md:px-8">
         <div className="mb-6 md:mb-8">
-          <p className="text-sm text-white/50">{subtitle}</p>
           <h2 className="mt-1 text-3xl md:text-4xl font-semibold">{title}</h2>
+          <p className="text-sm text-white/50">{subtitle}</p>
         </div>
 
         <div className="grid gap-6 md:gap-7 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">

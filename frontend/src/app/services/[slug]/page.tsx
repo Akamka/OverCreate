@@ -132,7 +132,7 @@ export default async function ServicePage({ params }: PageProps) {
         title={cfg.sectionTitles?.highlightsTitle ?? 'What you get'}
         subtitle={cfg.sectionTitles?.highlightsSubtitle ?? 'Value that compounds'}
       />
-
+{/* TODO */}
       <ServicePricing
         pricing={cfg.pricing}
         accentFrom={cfg.acc1}
