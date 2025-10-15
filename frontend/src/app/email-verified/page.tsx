@@ -1,13 +1,11 @@
 'use client';
 
+import { Suspense, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, type CSSProperties } from 'react';
 import PremiumBackground from '@/components/PremiumBackground';
-
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080/api';
 const ME_ENDPOINT = process.env.NEXT_PUBLIC_ME_ENDPOINT ?? '/me';
-
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';
@@ -18,12 +16,8 @@ function getToken(): string {
   );
 }
 
-type MeResponse = {
-  id: number;
-  email_verified_at?: string | null;
-};
-
-export default function EmailVerifiedPage() {
+/** Внутренний клиентский компонент, в котором используем useSearchParams */
+function EmailVerifiedInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const redirectTo = sp.get('redirect') || '/dashboard';
@@ -37,7 +31,6 @@ export default function EmailVerifiedPage() {
   };
 
   useEffect(() => {
-    // Опционально: перепроверим статус — чтобы страница не показывалась “ложно-позитивно”
     const token = getToken();
     if (!token) {
       setVerified(null);
@@ -53,7 +46,7 @@ export default function EmailVerifiedPage() {
           setVerified(null);
           return;
         }
-        const me = (await res.json()) as MeResponse;
+        const me = (await res.json()) as { email_verified_at?: string | null };
         setVerified(Boolean(me.email_verified_at));
       } catch {
         setVerified(null);
@@ -134,5 +127,14 @@ export default function EmailVerifiedPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Страница: просто оборачиваем клиентский компонент в Suspense */
+export default function EmailVerifiedPage() {
+  return (
+    <Suspense fallback={null}>
+      <EmailVerifiedInner />
+    </Suspense>
   );
 }
