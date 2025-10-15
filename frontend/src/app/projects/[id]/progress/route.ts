@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const API = process.env.BACKEND_API_URL!; // https://api.overcreate.co
+const API = process.env.BACKEND_API_URL!;
 
 function fwdHeaders(req: NextRequest) {
   const h = new Headers();
@@ -37,11 +37,14 @@ async function proxy(req: NextRequest, path: string) {
   return new Response(await r.arrayBuffer(), { status: r.status, headers: out });
 }
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   return proxy(req, `/projects/${id}/progress`);
 }
-export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+
+export async function POST(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   return proxy(req, `/projects/${id}/progress`);
 }
