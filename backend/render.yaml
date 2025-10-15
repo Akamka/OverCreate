@@ -1,0 +1,95 @@
+services:
+  - type: web
+    name: overcreate-api
+    env: docker
+    plan: starter
+    region: frankfurt
+    disk:
+      name: storage
+      mountPath: /app/storage
+      sizeGB: 5
+    envVars:
+      - key: APP_NAME
+        value: OverCreate
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: https://api.overcreate.co
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: SESSION_LIFETIME
+        value: "120"
+      - key: SESSION_DOMAIN
+        value: .overcreate.co
+      - key: SANCTUM_STATEFUL_DOMAINS
+        value: overcreate.co,admin.overcreate.co
+      - key: FRONTEND_URL
+        value: https://overcreate.co
+      # DB доступы — ниже ссылаемся на приватный сервис mysql
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        fromService:
+          name: overcreate-mysql
+          type: pserv
+          property: host
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        value: overcreate
+      - key: DB_USERNAME
+        value: overcreate
+      - key: DB_PASSWORD
+        generateValue: true
+      # Почта (поставь свои)
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.example.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: user@example.com
+      - key: MAIL_PASSWORD
+        generateValue: true
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_FROM_ADDRESS
+        value: noreply@overcreate.co
+      - key: MAIL_FROM_NAME
+        value: OverCreate
+      # Realtime: Pusher Hosted (если используешь)
+      - key: BROADCAST_DRIVER
+        value: pusher
+      - key: PUSHER_APP_ID
+        value: ""
+      - key: PUSHER_APP_KEY
+        value: ""
+      - key: PUSHER_APP_SECRET
+        value: ""
+      - key: PUSHER_APP_CLUSTER
+        value: mt1
+
+  - type: pserv
+    name: overcreate-mysql
+    env: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ""
+    image:
+      url: mysql:8.0
+    disk:
+      name: mysqldata
+      mountPath: /var/lib/mysql
+      sizeGB: 10
+    envVars:
+      - key: MYSQL_DATABASE
+        value: overcreate
+      - key: MYSQL_USER
+        value: overcreate
+      - key: MYSQL_PASSWORD
+        generateValue: true
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true
