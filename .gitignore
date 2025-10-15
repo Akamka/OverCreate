@@ -5,3 +5,36 @@ vendor/
 /backend/storage/framework/cache/
 /backend/storage/framework/sessions/
 /backend/storage/framework/views/
+
+
+# Node / JS
+node_modules/
+.npm/
+.pnpm-store/
+dist/
+.next/
+out/
+.vite/
+coverage/
+*.log
+*.log.*
+
+# Laravel / PHP
+/vendor/
+/bootstrap/cache/*
+!bootstrap/cache/.gitignore
+/storage/*.key
+/storage/framework/cache/data
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+/public/storage
+.env
+.env.*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.vercel

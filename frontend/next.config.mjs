@@ -1,37 +1,34 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // ❌ i18n больше не нужен
-  // i18n: { ... },
+const API = process.env.BACKEND_API_URL; // например https://api.overcreate.co
 
+/** helper для host/port картинок */
+function imagePatternFromApi(api) {
+  try {
+    const u = new URL(api);
+    return [{ protocol: u.protocol.replace(':',''), hostname: u.hostname, port: u.port || undefined, pathname: '/storage/**' }];
+  } catch { return []; }
+}
+
+const nextConfig = {
   async redirects() {
     return [
-      // /en/whatever → /whatever
-      {
-        source: '/:locale(uk|en|pl|ru)/:path*',
-        destination: '/:path*',
-        permanent: true,
-      },
-      // /en → /
-      {
-        source: '/:locale(uk|en|pl|ru)',
-        destination: '/',
-        permanent: true,
-      },
+      { source: '/:locale(uk|en|pl|ru)/:path*', destination: '/:path*', permanent: true },
+      { source: '/:locale(uk|en|pl|ru)', destination: '/', permanent: true },
     ];
   },
 
   async rewrites() {
+    if (!API) return []; // в проде без API не проксируем
     return [
-      { source: "/api/:path*", destination: "http://127.0.0.1:8080/api/:path*" },
-      { source: "/broadcasting/:path*", destination: "http://127.0.0.1:8080/broadcasting/:path*" },
+      { source: '/api/:path*',          destination: `${API}/api/:path*` },
+      { source: '/broadcasting/:path*', destination: `${API}/broadcasting/:path*` },
     ];
   },
 
   images: {
-    remotePatterns: [
-      { protocol: "http", hostname: "127.0.0.1", port: "8080", pathname: "/storage/**" },
-      { protocol: "http", hostname: "localhost",  port: "8080", pathname: "/storage/**" },
-    ],
+    remotePatterns: API ? imagePatternFromApi(API) : [],
+    // на время без API можно включить:
+    // unoptimized: !API,
   },
 };
 

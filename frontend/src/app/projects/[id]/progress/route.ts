@@ -1,43 +1,45 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { pusher } from '@/lib/pusher-server';
+import type { NextRequest } from 'next/server';
 
-type Params = { params: { id: string } };
+export const runtime = 'nodejs';
 
-export async function POST(req: Request, { params }: Params) {
-  const projectId = params.id;
+const API = process.env.BACKEND_API_URL; // = https://api.overcreate.co
 
-  // ожидаем { value: number; note?: string; authorId: string }
-  const body = (await req.json()) as { value?: number; note?: string; authorId?: string };
+function forwardHeaders(req: NextRequest) {
+  const h = new Headers();
+  const ctype = req.headers.get('content-type');
+  const auth  = req.headers.get('authorization');
+  const cookie = req.headers.get('cookie');
+  if (ctype) h.set('content-type', ctype);
+  if (auth)  h.set('authorization', auth);
+  if (cookie) h.set('cookie', cookie);
+  return h;
+}
 
-  const value = Number(body.value ?? NaN);
-  const authorId = body.authorId ?? '';
+async function proxy(req: NextRequest, path: string) {
+  if (!API) return new Response('API not configured', { status: 503 });
 
-  if (!Number.isFinite(value) || value < 0 || value > 100) {
-    return NextResponse.json({ error: 'value должен быть 0..100' }, { status: 400 });
-  }
-  if (!authorId) {
-    return NextResponse.json({ error: 'Нет authorId' }, { status: 400 });
-  }
+  const srcUrl = new URL(req.url);
+  const target = `${API}${path}${srcUrl.search}`;
 
-  // 1) Обновляем прогресс проекта
-  const project = await prisma.project.update({
-    where: { id: projectId },
-    data: { progress: value },
-    select: { id: true, progress: true },
-  });
+  const init: RequestInit = {
+    method: req.method,
+    headers: forwardHeaders(req),
+    body: (req.method === 'GET' || req.method === 'HEAD') ? undefined : await req.arrayBuffer(),
+    cache: 'no-store',
+  };
 
-  // 2) Создаём запись истории
-  const update = await prisma.progressUpdate.create({
-    data: { projectId, authorId, value, note: body.note ?? null },
-  });
+  const r = await fetch(target, init);
 
-  // 3) Триггерим событие в канал проекта
-  await pusher.trigger(`project-${projectId}`, 'progress:update', {
-    value,
-    authorId,
-    at: new Date().toISOString(),
-  });
+  const outHeaders = new Headers();
+  const ct = r.headers.get('content-type'); if (ct) outHeaders.set('content-type', ct);
+  const sc = r.headers.get('set-cookie');  if (sc) outHeaders.set('set-cookie', sc);
 
-  return NextResponse.json({ ok: true, project, update });
+  return new Response(await r.arrayBuffer(), { status: r.status, headers: outHeaders });
+}
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  return proxy(req, `/projects/${params.id}/progress`);
+}
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  return proxy(req, `/projects/${params.id}/progress`);
 }
