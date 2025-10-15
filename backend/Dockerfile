@@ -1,31 +1,42 @@
-# Dockerfile (для Render)
-FROM webdevops/php-nginx:8.3-alpine
+# backend/Dockerfile
+FROM php:8.3-cli
 
-# Рабочая директория и document root
-WORKDIR /app
-ENV WEB_DOCUMENT_ROOT=/app/public
-ENV APP_ENV=production
-ENV APP_DEBUG=false
+ARG DEBIAN_FRONTEND=noninteractive
 
-# Ставим нужные расширения для Laravel + MySQL
-RUN apk add --no-cache git unzip icu-dev libzip-dev oniguruma-dev \
- && docker-php-ext-install intl pdo pdo_mysql zip opcache
+# Ставим системные зависимости и PHP-расширения, которые чаще всего нужны Laravel
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git unzip libzip-dev libicu-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg \
+ && docker-php-ext-install -j$(nproc) pdo_mysql zip intl mbstring bcmath gd \
+ && rm -rf /var/lib/apt/lists/*
 
-# Composer внутри контейнера
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    COMPOSER_MEMORY_LIMIT=-1
 
-# Копируем composer.* отдельно для cache layer
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+WORKDIR /var/www/html
 
-# Копируем приложение
-COPY . .
+# Сначала тащим только composer.* — ускорит кеширование
+COPY backend/composer.json backend/composer.lock ./
 
-# Симлинк на storage, очистка кешей (ошибки игнорируем, если .env ещё нет)
-RUN php artisan storage:link || true \
- && php artisan config:clear || true \
- && php artisan route:clear || true \
- && php artisan view:clear || true
+# Ставим зависимости без скриптов artisan (чтобы не падало во время build)
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# На старте прогреем кеши (если ENV уже есть), затем запустим supervisor (nginx+php-fpm)
-CMD bash -lc "php artisan config:cache || true && php artisan route:cache || true && php artisan view:cache || true && supervisord"
+# Теперь копируем весь код
+COPY backend/ ./
+
+# Права на storage и bootstrap/cache
+RUN mkdir -p storage bootstrap/cache \
+ && chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R ug+rwx storage bootstrap/cache
+
+# Попытка package:discover — если что, не роняем билд (всё равно запустится на runtime)
+RUN php artisan package:discover --ansi || true
+
+# Render слушает $PORT
+ENV PORT=8080
+EXPOSE 8080
+
+# Стартуем простой PHP сервер (без Nginx) из /public
+CMD ["bash", "-lc", "php -d variables_order=EGPCS -S 0.0.0.0:${PORT} -t public public/index.php"]
