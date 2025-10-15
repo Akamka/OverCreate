@@ -1,13 +1,11 @@
 'use client';
 
+import { Suspense, useMemo, useState, type CSSProperties } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState, useMemo, type CSSProperties } from 'react';
 import PremiumBackground from '@/components/PremiumBackground';
 import { API_URL } from '@/lib/api';
 
-
-
-export default function ResetPasswordPage() {
+function ResetPasswordInner() {
   const router = useRouter();
   const search = useSearchParams();
 
@@ -97,9 +95,7 @@ export default function ResetPasswordPage() {
             >
               Set a new password
             </h1>
-            <p className="mt-1 text-sm text-white/70">
-              Choose a strong password (at least 6 characters).
-            </p>
+            <p className="mt-1 text-sm text-white/70">Choose a strong password (at least 6 characters).</p>
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 opacity-70"
@@ -114,27 +110,13 @@ export default function ResetPasswordPage() {
           {/* form */}
           <form onSubmit={submit} autoComplete="off" className="relative p-6 space-y-4">
             {/* honeypots */}
-            <input
-              type="text"
-              name="fake-username"
-              autoComplete="username"
-              tabIndex={-1}
-              aria-hidden="true"
-              style={{ position: 'absolute', left: -9999, width: 0, height: 0, opacity: 0 }}
-            />
-            <input
-              type="password"
-              name="fake-password"
-              autoComplete="new-password"
-              tabIndex={-1}
-              aria-hidden="true"
-              style={{ position: 'absolute', left: -9999, width: 0, height: 0, opacity: 0 }}
-            />
+            <input type="text" name="fake-username" autoComplete="username" tabIndex={-1} aria-hidden="true"
+              style={{ position: 'absolute', left: -9999, width: 0, height: 0, opacity: 0 }} />
+            <input type="password" name="fake-password" autoComplete="new-password" tabIndex={-1} aria-hidden="true"
+              style={{ position: 'absolute', left: -9999, width: 0, height: 0, opacity: 0 }} />
 
             <label className="block">
-              <span className="mb-1 block text-xs font-medium uppercase tracking-widest text-white/65">
-                Email
-              </span>
+              <span className="mb-1 block text-xs font-medium uppercase tracking-widest text-white/65">Email</span>
               <input
                 value={email}
                 readOnly
@@ -145,9 +127,7 @@ export default function ResetPasswordPage() {
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-medium uppercase tracking-widest text-white/65">
-                New password
-              </span>
+              <span className="mb-1 block text-xs font-medium uppercase tracking-widest text-white/65">New password</span>
               <input
                 type="password"
                 placeholder="At least 6 characters"
@@ -180,9 +160,7 @@ export default function ResetPasswordPage() {
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-xs font-medium uppercase tracking-widest text-white/65">
-                Confirm password
-              </span>
+              <span className="mb-1 block text-xs font-medium uppercase tracking-widest text-white/65">Confirm password</span>
               <input
                 type="password"
                 placeholder="Repeat the password"
@@ -239,5 +217,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordInner />
+    </Suspense>
   );
 }

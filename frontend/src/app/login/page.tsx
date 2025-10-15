@@ -1,12 +1,9 @@
 'use client';
 
+import { Suspense, useMemo, useState, useEffect, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMemo, useState, useEffect, type CSSProperties } from 'react';
 import PremiumBackground from '@/components/PremiumBackground';
 import { API_URL, setToken } from '@/lib/api';
-
-
-
 
 type LoginResponse = {
   token: string;
@@ -19,7 +16,7 @@ type LoginResponse = {
   };
 };
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
 
@@ -238,5 +235,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }
