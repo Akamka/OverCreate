@@ -1,31 +1,38 @@
 # backend/Dockerfile
-FROM php:8.3-cli
-ARG DEBIAN_FRONTEND=noninteractive
+FROM webdevops/php-nginx:8.3-alpine
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip libzip-dev libicu-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
+# Рабочая директория и document root
+WORKDIR /app
+ENV WEB_DOCUMENT_ROOT=/app/public
+ENV APP_ENV=production
+ENV APP_DEBUG=false
+
+# Системные пакеты и PHP-расширения (Alpine → apk)
+RUN apk add --no-cache \
+      git unzip bash icu-dev libzip-dev oniguruma-dev \
+      freetype-dev libpng-dev libjpeg-turbo-dev \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j$(nproc) pdo_mysql zip intl mbstring bcmath gd \
- && rm -rf /var/lib/apt/lists/*
+ && docker-php-ext-install pdo_mysql zip intl mbstring bcmath gd
 
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-ENV COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    COMPOSER_MEMORY_LIMIT=-1
 
-WORKDIR /var/www/html
-
-# теперь без backend/
+# Сначала — только composer.* (кеш слоёв)
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# копируем весь код (тоже без backend/)
-COPY . ./
+# Затем — остальной код
+COPY . .
 
+# Права на storage/bootstrap/cache
 RUN mkdir -p storage bootstrap/cache \
- && chown -R www-data:www-data storage bootstrap/cache \
+ && chown -R application:application storage bootstrap/cache \
  && chmod -R ug+rwx storage bootstrap/cache
 
+# Artisan discover (если .env ещё нет — не падаем)
 RUN php artisan package:discover --ansi || true
 
-ENV PORT=8080
-EXPOSE 8080
-CMD ["bash", "-lc", "php -d variables_order=EGPCS -S 0.0.0.0:${PORT} -t public public/index.php"]
+# Порт Render передаёт сам, супервизор стартует Nginx+PHP-FPM
+CMD bash -lc "php artisan config:cache || true && php artisan route:cache || true && php artisan view:cache || true && supervisord"
