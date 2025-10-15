@@ -1,35 +1,26 @@
 'use client';
 
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import PremiumBackground from '@/components/PremiumBackground';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8080/api';
-
-// Где у вас лежит “профиль текущего юзера”. Если у вас другой — поменяйте здесь на свой.
-// Для Laravel/Sanctum это часто /api/user или /api/me.
 const ME_ENDPOINT = process.env.NEXT_PUBLIC_ME_ENDPOINT ?? '/me';
 
 function getToken(): string {
   if (typeof window === 'undefined') return '';
-  return (
-    sessionStorage.getItem('token') ||
-    localStorage.getItem('token') ||
-    ''
-  );
+  return sessionStorage.getItem('token') || localStorage.getItem('token') || '';
 }
-
-
 
 type MeResponse = {
   id: number;
   name?: string | null;
   email?: string | null;
   email_verified_at?: string | null;
-  // ...остальные поля не критичны для этой страницы
 };
 
-export default function VerifyEmailPage() {
+/** Внутренний клиентский компонент: тут используем useSearchParams */
+function VerifyEmailInner() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -37,17 +28,14 @@ export default function VerifyEmailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // можно передать redirect=/dashboard — тогда кнопка Continue учитывает это
   const redirectTo = useMemo(() => sp.get('redirect') || '/dashboard', [sp]);
 
-  // единая палитра как на остальных страницах
   const accents: CSSProperties & { ['--acc1']?: string; ['--acc2']?: string; ['--acc3']?: string } = {
-    '--acc1': '59 130 246',   // blue-500
-    '--acc2': '168 85 247',   // purple-500
-    '--acc3': '45 212 191',   // teal-400
+    '--acc1': '59 130 246',
+    '--acc2': '168 85 247',
+    '--acc3': '45 212 191',
   };
 
-  // авто-пуллинг статуса каждые N секунд (можно выключить/включить)
   const [autoPoll, setAutoPoll] = useState(true);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -75,7 +63,6 @@ export default function VerifyEmailPage() {
     }
     const me = await fetchMe();
     if (me?.email_verified_at) {
-      // как только верифицирован — на /email-verified
       router.replace('/email-verified');
       return;
     }
@@ -110,7 +97,6 @@ export default function VerifyEmailPage() {
         setErr('Session expired. Please sign in again.');
         router.replace('/login?redirect=/verify-email');
       } else {
-        // читаем json сообщение, если есть
         let detail = '';
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('application/json')) {
@@ -127,12 +113,9 @@ export default function VerifyEmailPage() {
     }
   }
 
-  // Автопуллинг статуса раз в 6 сек: как только email_verified_at есть — уводим на /email-verified
   useEffect(() => {
     if (!autoPoll) return;
-    // быстрый старт — разово проверить сразу
-    checkAndContinue();
-
+    checkAndContinue(); // быстрый старт
     pollTimer.current = setInterval(checkAndContinue, 6000);
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current);
@@ -164,7 +147,6 @@ export default function VerifyEmailPage() {
               We’ve sent a confirmation email. Click the link inside to verify your address.
             </p>
 
-            {/* soft tints */}
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 opacity-70"
@@ -243,5 +225,14 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Страница: оборачиваем клиентский компонент в Suspense */
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyEmailInner />
+    </Suspense>
   );
 }
