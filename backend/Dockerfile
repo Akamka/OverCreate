@@ -37,15 +37,4 @@ RUN set -eux; \
 COPY docker/entrypoint/99-artisan.sh /opt/docker/provision/entrypoint.d/99-artisan.sh
 RUN chmod +x /opt/docker/provision/entrypoint.d/99-artisan.sh
 
-# Важно: CMD/ENTRYPOINT не трогаем — их даёт базовый образ (supervisord c nginx+php-fpm)
-
-
-# ... выше без изменений
-RUN printf '#!/bin/sh\n'                                  >  /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan package:discover --ansi || true\n' >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan config:cache      || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan route:cache       || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan view:cache        || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan storage:link      || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan migrate --force --no-interaction || true\n' >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && chmod +x /opt/docker/provision/entrypoint.d/99-artisan.sh
+# Важно: CMD/ENTRYPOINT не трогаем — их даёт базовый образ (supervisord с nginx+php-fpm)
