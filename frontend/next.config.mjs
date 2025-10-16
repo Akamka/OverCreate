@@ -1,13 +1,7 @@
+// next.config.mjs
 /** @type {import('next').NextConfig} */
-const API = process.env.BACKEND_API_URL; // например https://api.overcreate.co
-
-/** helper для host/port картинок */
-function imagePatternFromApi(api) {
-  try {
-    const u = new URL(api);
-    return [{ protocol: u.protocol.replace(':',''), hostname: u.hostname, port: u.port || undefined, pathname: '/storage/**' }];
-  } catch { return []; }
-}
+const isProd = process.env.NODE_ENV === 'production';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8080';
 
 const nextConfig = {
   async redirects() {
@@ -18,17 +12,22 @@ const nextConfig = {
   },
 
   async rewrites() {
-    if (!API) return []; // в проде без API не проксируем
+    // В ПРОДЕ — НИКАКИХ localhost!
+    if (isProd) return [];
+    // Локально удобно проксировать на докер/лару
     return [
-      { source: '/api/:path*',          destination: `${API}/api/:path*` },
-      { source: '/broadcasting/:path*', destination: `${API}/broadcasting/:path*` },
+      { source: '/api/:path*',           destination: `${API_BASE}/api/:path*` },
+      { source: '/broadcasting/:path*',  destination: `${API_BASE}/broadcasting/:path*` },
     ];
   },
 
   images: {
-    remotePatterns: API ? imagePatternFromApi(API) : [],
-    // на время без API можно включить:
-    // unoptimized: !API,
+    remotePatterns: [
+      { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/storage/**' },
+      // на случай локальной разработки
+      { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/storage/**' },
+      { protocol: 'http', hostname: 'localhost',  port: '8080', pathname: '/storage/**' },
+    ],
   },
 };
 
