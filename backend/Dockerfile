@@ -1,13 +1,12 @@
 # backend/Dockerfile
 FROM webdevops/php-nginx:8.3-alpine
 
-# Рабочая директория и document root
 WORKDIR /app
 ENV WEB_DOCUMENT_ROOT=/app/public \
     APP_ENV=production \
     APP_DEBUG=false
 
-# Системные пакеты и PHP-расширения
+# Системные пакеты и расширения PHP
 RUN apk add --no-cache \
       git unzip bash tzdata icu-dev libzip-dev oniguruma-dev \
       freetype-dev libpng-dev libjpeg-turbo-dev \
@@ -19,36 +18,23 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1 \
     COMPOSER_MEMORY_LIMIT=-1
 
-# Сначала только composer.* (кеш слоёв)
+# Кэш слоёв: сначала composer.*
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Потом весь код приложения
+# Затем код приложения
 COPY . .
 
-# Права на storage и cache
-RUN mkdir -p storage bootstrap/cache \
- && chown -R application:application storage bootstrap/cache \
- && chmod -R ug+rwx storage bootstrap/cache
-
-# Hook: команды artisan при старте контейнера (после подхвата ENV от Render)
-# Не генерируем APP_KEY автоматически (сделаешь вручную), ошибки игнорируем.
-RUN printf '#!/bin/sh\n'                                  >  /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan package:discover --ansi || true\n' >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan config:cache      || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan route:cache       || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan view:cache        || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && printf 'php artisan storage:link      || true\n'       >> /opt/docker/provision/entrypoint.d/99-artisan.sh \
- && chmod +x /opt/docker/provision/entrypoint.d/99-artisan.sh
-
-# ВАЖНО: не переопределяем CMD — дефолтный entrypoint образа сам стартует supervisord (nginx+php-fpm).
-
-
-# Права и обязательные папки Laravel
+# Папки и права
 RUN set -eux; \
-    mkdir -p \
-      storage/framework/{cache,data,sessions,testing,views} \
-      storage/logs \
-      bootstrap/cache; \
+    mkdir -p storage bootstrap/cache \
+             storage/framework/{cache,data,sessions,testing,views} \
+             storage/logs; \
     chown -R application:application storage bootstrap/cache; \
     chmod -R ug+rwX storage bootstrap/cache
+
+# Подключаем стартовый hook (webdevops сам исполняет всё в этой папке до запуска nginx/php-fpm)
+COPY docker/entrypoint/99-artisan.sh /opt/docker/provision/entrypoint.d/99-artisan.sh
+RUN chmod +x /opt/docker/provision/entrypoint.d/99-artisan.sh
+
+# Важно: CMD/ENTRYPOINT не трогаем — их даёт базовый образ (supervisord c nginx+php-fpm)
