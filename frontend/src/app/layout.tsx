@@ -8,6 +8,8 @@ import RouteTransitions from '@/components/transitions/RouteTransitions';
 import { Inter } from 'next/font/google';
 import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
 
+<link rel="manifest" href="/manifest.webmanifest" />
+
 const inter = Inter({ subsets: ['latin', 'cyrillic'], display: 'swap' });
 
 export const metadata: Metadata = {
