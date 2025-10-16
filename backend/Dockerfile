@@ -42,3 +42,13 @@ RUN printf '#!/bin/sh\n'                                  >  /opt/docker/provisi
  && chmod +x /opt/docker/provision/entrypoint.d/99-artisan.sh
 
 # ВАЖНО: не переопределяем CMD — дефолтный entrypoint образа сам стартует supervisord (nginx+php-fpm).
+
+
+# Права и обязательные папки Laravel
+RUN set -eux; \
+    mkdir -p \
+      storage/framework/{cache,data,sessions,testing,views} \
+      storage/logs \
+      bootstrap/cache; \
+    chown -R application:application storage bootstrap/cache; \
+    chmod -R ug+rwX storage bootstrap/cache
