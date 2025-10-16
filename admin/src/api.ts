@@ -1,22 +1,28 @@
+// src/lib/adminApi.ts
 import type { Paginated, PortfolioItem, ServiceSlug } from "../src/types";
 
-/* ------------ чтение env ------------ */
+/* ====== BASE из env (без localhost в проде) ====== */
 const RAW_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
   (import.meta.env.VITE_API_BASE as string | undefined) ??
   "http://127.0.0.1:8080";
 
-/** Нормализуем: убираем хвостовые слэши и случайный '/api' */
+// убираем хвосты
 const BASE = RAW_BASE.replace(/\/+$/, "").replace(/\/api$/i, "");
+const API  = `${BASE}/api`;
 
-/** ЕДИНЫЙ корень API */
-const API = `${BASE}/api`;
+// helper: гарантирует, что НЕ будет /api/api/*
+function joinApi(path: string) {
+  const clean = path.replace(/^\/+/, "");
+  const withoutApi = clean.startsWith("api/") ? clean.slice(4) : clean;
+  return `${API}/${withoutApi}`;
+}
 
+/* ====== token ====== */
 const ADMIN_TOKEN_ENV =
   (import.meta.env.VITE_ADMIN_TOKEN as string | undefined) ??
   (import.meta.env.VITE_DEFAULT_ADMIN_TOKEN as string | undefined);
 
-/* ------------ токен ------------ */
 export function getAdminToken(): string | undefined {
   return (
     ADMIN_TOKEN_ENV ||
@@ -30,25 +36,20 @@ export function requireAdminToken(): string {
   const t = getAdminToken();
   if (!t) {
     throw new Error(
-      "Missing admin token. Add VITE_ADMIN_TOKEN or VITE_DEFAULT_ADMIN_TOKEN, " +
-        "или установи localStorage.ADMIN_TOKEN"
+      "Missing admin token. Set VITE_ADMIN_TOKEN или VITE_DEFAULT_ADMIN_TOKEN (либо localStorage.ADMIN_TOKEN)"
     );
   }
   return t;
 }
 
-/* ------------ fetch-хелперы ------------ */
-function joinApi(path: string) {
-  // чтобы не получить // в середине
-  return `${API}/${path.replace(/^\/+/, "")}`;
-}
-
+/* ====== fetch-хелперы ====== */
 export async function adminFetch<T = unknown>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
   const token = requireAdminToken();
-  const res = await fetch(joinApi(path), {
+  const url = joinApi(path);
+  const res = await fetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
@@ -59,7 +60,7 @@ export async function adminFetch<T = unknown>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    throw new Error(text || `HTTP ${res.status} at ${url}`);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -71,20 +72,21 @@ export async function adminFetchForm<T = unknown>(
   method: "POST" | "PUT" | "PATCH" = "POST"
 ): Promise<T> {
   const token = requireAdminToken();
-  const res = await fetch(joinApi(path), {
+  const url = joinApi(path);
+  const res = await fetch(url, {
     method,
     headers: { Accept: "application/json", "X-Admin-Token": token },
     body: form,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    throw new Error(text || `HTTP ${res.status} at ${url}`);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
-/* ------------ Portfolio API ------------ */
+/* ====== Portfolio API ====== */
 
 export type PortfolioCreatePayload = {
   title: string;
@@ -104,7 +106,6 @@ export type PortfolioCreatePayload = {
   meta_title?: string | null;
   meta_description?: string | null;
 };
-
 export type PortfolioUpdatePayload = Partial<PortfolioCreatePayload>;
 
 export async function adminListPortfolio(params: {
@@ -119,8 +120,8 @@ export async function adminListPortfolio(params: {
   if (params.service_type) q.set("service_type", String(params.service_type));
   if (typeof params.published === "boolean")
     q.set("published", params.published ? "1" : "0");
-  // публичный список
-  return adminFetch<Paginated<PortfolioItem>>(`/portfolio?${q.toString()}`);
+  // ВАЖНО: без /api в начале
+  return adminFetch<Paginated<PortfolioItem>>(`portfolio?${q.toString()}`);
 }
 
 export async function adminCreatePortfolio(
@@ -132,10 +133,8 @@ export async function adminCreatePortfolio(
   if (payload.slug) fd.set("slug", payload.slug);
   if (payload.cover) fd.set("cover", payload.cover);
   if (payload.cover_url) fd.set("cover_url", payload.cover_url);
-  if (payload.gallery_files?.length)
-    payload.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
-  if (payload.gallery?.length)
-    payload.gallery.forEach((u) => fd.append("gallery[]", u));
+  payload.gallery_files?.forEach((f) => fd.append("gallery_files[]", f));
+  payload.gallery?.forEach((u) => fd.append("gallery[]", u));
   if (payload.client) fd.set("client", payload.client);
   if (payload.tags) fd.set("tags", payload.tags);
   if (payload.excerpt) fd.set("excerpt", payload.excerpt);
@@ -150,7 +149,7 @@ export async function adminCreatePortfolio(
   if (payload.meta_description)
     fd.set("meta_description", payload.meta_description);
 
-  return adminFetchForm<PortfolioItem>("/admin/portfolio", fd, "POST");
+  return adminFetchForm<PortfolioItem>("admin/portfolio", fd, "POST");
 }
 
 export async function adminUpdatePortfolio(
@@ -163,10 +162,8 @@ export async function adminUpdatePortfolio(
   if (patch.slug) fd.set("slug", patch.slug);
   if (patch.cover) fd.set("cover", patch.cover);
   if (patch.cover_url) fd.set("cover_url", patch.cover_url);
-  if (patch.gallery_files?.length)
-    patch.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
-  if (patch.gallery?.length)
-    patch.gallery.forEach((u) => fd.append("gallery[]", u));
+  patch.gallery_files?.forEach((f) => fd.append("gallery_files[]", f));
+  patch.gallery?.forEach((u) => fd.append("gallery[]", u));
   if (patch.client) fd.set("client", patch.client);
   if (patch.tags) fd.set("tags", patch.tags);
   if (patch.excerpt) fd.set("excerpt", patch.excerpt);
@@ -181,9 +178,9 @@ export async function adminUpdatePortfolio(
   if (patch.meta_description) fd.set("meta_description", patch.meta_description);
 
   fd.set("_method", "PATCH");
-  return adminFetchForm<PortfolioItem>(`/admin/portfolio/${id}`, fd, "POST");
+  return adminFetchForm<PortfolioItem>(`admin/portfolio/${id}`, fd, "POST");
 }
 
 export async function adminDeletePortfolio(id: number): Promise<void> {
-  await adminFetch<void>(`/admin/portfolio/${id}`, { method: "DELETE" });
+  await adminFetch<void>(`admin/portfolio/${id}`, { method: "DELETE" });
 }
