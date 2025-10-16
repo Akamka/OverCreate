@@ -156,7 +156,7 @@ export async function fetchPortfolioByService(
 ) {
   const url = new URL(`${BASE}/api/portfolio`);
   url.searchParams.set('service_type', service);
-  url.searchParams.set('is_published', '1');
+url.searchParams.set('published', '1');
   url.searchParams.set('page', String(page));
   url.searchParams.set('per_page', String(perPage));
 
