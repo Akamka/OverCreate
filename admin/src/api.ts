@@ -1,215 +1,189 @@
-import type {
-  ContactSubmission,
-  Paginated,
-  User,
-  Project,
-  ContactStatus,
-} from "./types";
+import type { Paginated, PortfolioItem, ServiceSlug } from "../src/types";
 
-/* ===================== Базовые настройки ===================== */
+/* ------------ чтение env ------------ */
+const RAW_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+  (import.meta.env.VITE_API_BASE as string | undefined) ??
+  "http://127.0.0.1:8080";
 
-const BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8080";
-const TOKEN_KEY = "oc_admin_token";
+/** Нормализуем: убираем хвостовые слэши и случайный '/api' */
+const BASE = RAW_BASE.replace(/\/+$/, "").replace(/\/api$/i, "");
 
-/* ===================== Token helpers ===================== */
+/** ЕДИНЫЙ корень API */
+const API = `${BASE}/api`;
 
-export function getSavedToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
+const ADMIN_TOKEN_ENV =
+  (import.meta.env.VITE_ADMIN_TOKEN as string | undefined) ??
+  (import.meta.env.VITE_DEFAULT_ADMIN_TOKEN as string | undefined);
+
+/* ------------ токен ------------ */
+export function getAdminToken(): string | undefined {
+  return (
+    ADMIN_TOKEN_ENV ||
+    localStorage.getItem("ADMIN_TOKEN") ||
+    localStorage.getItem("token") ||
+    undefined
+  );
+}
+
+export function requireAdminToken(): string {
+  const t = getAdminToken();
+  if (!t) {
+    throw new Error(
+      "Missing admin token. Add VITE_ADMIN_TOKEN or VITE_DEFAULT_ADMIN_TOKEN, " +
+        "или установи localStorage.ADMIN_TOKEN"
+    );
   }
-}
-export function saveToken(t: string) {
-  localStorage.setItem(TOKEN_KEY, t);
-}
-export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
-function requireToken(): string {
-  const t = getSavedToken();
-  if (!t) throw new Error("Admin token is missing");
   return t;
 }
 
-/* ===================== HTTP helper ===================== */
+/* ------------ fetch-хелперы ------------ */
+function joinApi(path: string) {
+  // чтобы не получить // в середине
+  return `${API}/${path.replace(/^\/+/, "")}`;
+}
 
-async function requestJson<T>(
-  url: string,
-  adminToken: string,
-  init?: RequestInit
+export async function adminFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {}
 ): Promise<T> {
-  const full = url.startsWith("http") ? url : `${BASE}${url}`;
-  const res = await fetch(full, {
+  const token = requireAdminToken();
+  const res = await fetch(joinApi(path), {
     ...init,
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "X-Admin-Token": adminToken,
-      ...(init?.headers || {}),
+      "X-Admin-Token": token,
+      ...(init.headers || {}),
     },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `HTTP ${res.status}`);
   }
-  return res.status === 204
-    ? (undefined as unknown as T)
-    : ((await res.json()) as T);
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
 }
 
-/* ===================== Contacts (заявки) ===================== */
-
-/** Список заявок (совместимо с абсолютным URL пагинации) */
-export async function listContactSubmissions(
-  adminToken: string,
-  url?: string
-): Promise<Paginated<ContactSubmission> | ContactSubmission[]> {
-  const path = url ?? "/api/contact-submissions";
-  return requestJson(path, adminToken);
-}
-
-/** --- «админские» функции с явным токеном --- */
-export function adminUpdateContactStatus(
-  adminToken: string,
-  id: number,
-  status: ContactStatus
-) {
-  return requestJson<ContactSubmission>(
-    `/api/admin/contact-submissions/${id}`,
-    adminToken,
-    { method: "PATCH", body: JSON.stringify({ status }) }
-  );
-}
-
-export function adminDeleteContact(adminToken: string, id: number) {
-  return requestJson<void>(
-    `/api/admin/contact-submissions/${id}`,
-    adminToken,
-    { method: "DELETE" }
-  );
-}
-
-export function adminBulkDeleteContacts(adminToken: string, ids: number[]) {
-  return requestJson<{ deleted: number }>(
-    `/api/admin/contact-submissions`,
-    adminToken,
-    { method: "DELETE", body: JSON.stringify({ ids }) }
-  );
-}
-
-/** --- Совместимые «шорткаты» без токена (как у тебя в Table) --- */
-export function contactUpdateStatus(id: number, status: ContactStatus) {
-  const t = requireToken();
-  return adminUpdateContactStatus(t, id, status);
-}
-
-export function contactDelete(id: number) {
-  const t = requireToken();
-  return adminDeleteContact(t, id);
-}
-
-export async function contactBulkDelete(ids: number[]) {
-  const t = requireToken();
-  return adminBulkDeleteContacts(t, ids);
-}
-
-/** Массовая смена статуса — серверного эндпоинта нет, делаем через Promise.all */
-export async function contactBulkUpdateStatus(
-  ids: number[],
-  status: ContactStatus
-): Promise<ContactSubmission[]> {
-  const t = requireToken();
-  const out = await Promise.all(
-    ids.map((id) => adminUpdateContactStatus(t, id, status))
-  );
-  return out;
-}
-
-/* ===================== Users ===================== */
-
-export function adminListUsers(
-  token: string,
-  params?: { q?: string; role?: string; page?: number }
-) {
-  const qs = new URLSearchParams();
-  if (params?.q) qs.set("q", params.q);
-  if (params?.role) qs.set("role", params.role);
-  if (params?.page) qs.set("page", String(params.page));
-  const s = qs.toString() ? `?${qs}` : "";
-  return requestJson<Paginated<User>>(`/api/admin/users${s}`, token);
-}
-
-export function adminUpdateUserRole(
-  token: string,
-  id: number,
-  role: User["role"]
-) {
-  return requestJson<User>(`/api/admin/users/${id}/role`, token, {
-    method: "PATCH",
-    body: JSON.stringify({ role }),
+export async function adminFetchForm<T = unknown>(
+  path: string,
+  form: FormData,
+  method: "POST" | "PUT" | "PATCH" = "POST"
+): Promise<T> {
+  const token = requireAdminToken();
+  const res = await fetch(joinApi(path), {
+    method,
+    headers: { Accept: "application/json", "X-Admin-Token": token },
+    body: form,
   });
-}
-
-export function adminListStaff(token: string) {
-  return requestJson<User[]>(`/api/admin/staff`, token);
-}
-
-/* ===================== Projects ===================== */
-
-export function adminListProjects(
-  token: string,
-  params?: {
-    q?: string;
-    status?: Project["status"];
-    user_id?: number;
-    assignee_id?: number;
-    page?: number;
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `HTTP ${res.status}`);
   }
-) {
-  const qs = new URLSearchParams();
-  if (params?.q) qs.set("q", params.q);
-  if (params?.status) qs.set("status", params.status);
-  if (params?.user_id) qs.set("user_id", String(params.user_id));
-  if (params?.assignee_id) qs.set("assignee_id", String(params.assignee_id));
-  if (params?.page) qs.set("page", String(params.page));
-  const s = qs.toString() ? `?${qs}` : "";
-  return requestJson<Paginated<Project>>(`/api/admin/projects${s}`, token);
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
 }
 
-export function adminCreateProject(token: string, data: Partial<Project>) {
-  return requestJson<Project>(`/api/admin/projects`, token, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+/* ------------ Portfolio API ------------ */
+
+export type PortfolioCreatePayload = {
+  title: string;
+  service_type: ServiceSlug | string;
+  slug?: string;
+  cover?: File | null;
+  gallery_files?: File[] | null;
+  cover_url?: string | null;
+  gallery?: string[] | null;
+  client?: string | null;
+  tags?: string | null;
+  excerpt?: string | null;
+  body?: string | null;
+  is_published?: boolean;
+  is_featured?: boolean;
+  sort_order?: number;
+  meta_title?: string | null;
+  meta_description?: string | null;
+};
+
+export type PortfolioUpdatePayload = Partial<PortfolioCreatePayload>;
+
+export async function adminListPortfolio(params: {
+  page?: number;
+  per_page?: number;
+  service_type?: ServiceSlug | string;
+  published?: boolean;
+}): Promise<Paginated<PortfolioItem>> {
+  const q = new URLSearchParams();
+  if (params.page) q.set("page", String(params.page));
+  if (params.per_page) q.set("per_page", String(params.per_page));
+  if (params.service_type) q.set("service_type", String(params.service_type));
+  if (typeof params.published === "boolean")
+    q.set("published", params.published ? "1" : "0");
+  // публичный список
+  return adminFetch<Paginated<PortfolioItem>>(`/portfolio?${q.toString()}`);
 }
 
-export function adminUpdateProject(
-  token: string,
+export async function adminCreatePortfolio(
+  payload: PortfolioCreatePayload
+): Promise<PortfolioItem> {
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("service_type", String(payload.service_type));
+  if (payload.slug) fd.set("slug", payload.slug);
+  if (payload.cover) fd.set("cover", payload.cover);
+  if (payload.cover_url) fd.set("cover_url", payload.cover_url);
+  if (payload.gallery_files?.length)
+    payload.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
+  if (payload.gallery?.length)
+    payload.gallery.forEach((u) => fd.append("gallery[]", u));
+  if (payload.client) fd.set("client", payload.client);
+  if (payload.tags) fd.set("tags", payload.tags);
+  if (payload.excerpt) fd.set("excerpt", payload.excerpt);
+  if (payload.body) fd.set("body", payload.body);
+  if (typeof payload.is_published === "boolean")
+    fd.set("is_published", payload.is_published ? "1" : "0");
+  if (typeof payload.is_featured === "boolean")
+    fd.set("is_featured", payload.is_featured ? "1" : "0");
+  if (typeof payload.sort_order === "number")
+    fd.set("sort_order", String(payload.sort_order));
+  if (payload.meta_title) fd.set("meta_title", payload.meta_title);
+  if (payload.meta_description)
+    fd.set("meta_description", payload.meta_description);
+
+  return adminFetchForm<PortfolioItem>("/admin/portfolio", fd, "POST");
+}
+
+export async function adminUpdatePortfolio(
   id: number,
-  data: Partial<Project>
-) {
-  return requestJson<Project>(`/api/admin/projects/${id}`, token, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+  patch: PortfolioUpdatePayload
+): Promise<PortfolioItem> {
+  const fd = new FormData();
+  if (patch.title) fd.set("title", patch.title);
+  if (patch.service_type) fd.set("service_type", String(patch.service_type));
+  if (patch.slug) fd.set("slug", patch.slug);
+  if (patch.cover) fd.set("cover", patch.cover);
+  if (patch.cover_url) fd.set("cover_url", patch.cover_url);
+  if (patch.gallery_files?.length)
+    patch.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
+  if (patch.gallery?.length)
+    patch.gallery.forEach((u) => fd.append("gallery[]", u));
+  if (patch.client) fd.set("client", patch.client);
+  if (patch.tags) fd.set("tags", patch.tags);
+  if (patch.excerpt) fd.set("excerpt", patch.excerpt);
+  if (patch.body) fd.set("body", patch.body);
+  if (typeof patch.is_published === "boolean")
+    fd.set("is_published", patch.is_published ? "1" : "0");
+  if (typeof patch.is_featured === "boolean")
+    fd.set("is_featured", patch.is_featured ? "1" : "0");
+  if (typeof patch.sort_order === "number")
+    fd.set("sort_order", String(patch.sort_order));
+  if (patch.meta_title) fd.set("meta_title", patch.meta_title);
+  if (patch.meta_description) fd.set("meta_description", patch.meta_description);
+
+  fd.set("_method", "PATCH");
+  return adminFetchForm<PortfolioItem>(`/admin/portfolio/${id}`, fd, "POST");
 }
 
-export function adminDeleteProject(token: string, id: number) {
-  return requestJson<void>(`/api/admin/projects/${id}`, token, {
-    method: "DELETE",
-  });
-}
-
-/* ===================== CSV helper ===================== */
-
-export function toCSV(rows: Record<string, unknown>[]): string {
-  if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  const esc = (v: unknown) => `"${(v ?? "").toString().replace(/"/g, '""')}"`;
-  return [
-    headers.map(esc).join(","),
-    ...rows.map((r) => headers.map((h) => esc(r[h])).join(",")),
-  ].join("\r\n");
+export async function adminDeletePortfolio(id: number): Promise<void> {
+  await adminFetch<void>(`/admin/portfolio/${id}`, { method: "DELETE" });
 }
