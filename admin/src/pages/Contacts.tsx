@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { listContactSubmissions, getSavedToken, toCSV } from "../api";
+import { listContactSubmissions, getSavedToken, toCSV } from "../lib/adminApi";
 import type { ContactSubmission, Paginated } from "../types";
 import ContactsTable from "../components/ContactsTable";
 
@@ -18,13 +18,8 @@ export default function ContactsPage() {
     setLoading(true);
     try {
       const data = await listContactSubmissions(token, url);
-      if (Array.isArray(data)) {
-        setItems(data);
-        setLinks(undefined);
-      } else {
-        setItems(data.data || []);
-        setLinks(data.links);
-      }
+      setItems(data.data || []);
+      setLinks(data.links);
     } finally {
       setLoading(false);
     }
@@ -32,7 +27,6 @@ export default function ContactsPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -64,38 +58,26 @@ export default function ContactsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `contact_submissions.csv`;
+    a.download = "contact_submissions.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
 
   return (
-    // ==== FULL-BLEED ОБЁРТКА — выходим из центрального контейнера ====
-    <div
-      style={{
-        width: "100vw",
-        marginLeft: "calc(50% - 50vw)", // ломаем центрирование родителя
-      }}
-    >
+    // full-bleed обёртка
+    <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)" }}>
       <div
         style={{
           display: "grid",
           gap: 12,
           alignItems: "start",
           width: "100%",
-          paddingInline: 16, // немного внутренних отступов по краям
+          paddingInline: 16,
           boxSizing: "border-box",
         }}
       >
-        {/* Панель фильтрации/кнопок */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            width: "100%",
-          }}
-        >
+        {/* Панель действий */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", width: "100%" }}>
           <input
             placeholder="Поиск (имя, email, телефон, сообщение)"
             value={query}
@@ -145,19 +127,14 @@ export default function ContactsPage() {
             Загрузка…
           </div>
         ) : (
-          <div
-            style={{
-              width: "100%",
-            }}
-          >
-            {/* Прокидываем пропс, а раскладку столбцов и переносы
-                доделаем внутри таблицы через инлайн-стили */}
+          <div style={{ width: "100%" }}>
             <ContactsTable
               items={filtered}
               pagination={links}
               onNavigate={load}
               onChangeLocal={(next: ContactSubmission[]) => {
                 if (query.trim()) {
+                  // при локальном редактировании/пагинации не теряем отфильтрованные записи
                   const map = new Map<number, ContactSubmission>();
                   items.forEach((i) => map.set(i.id, i));
                   next.forEach((i) => map.set(i.id, i));

@@ -1,5 +1,6 @@
 // admin/src/api.ts
 // Единый API-хелпер для admin-панели
+export * from "./lib/adminApi";
 
 const RAW_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??

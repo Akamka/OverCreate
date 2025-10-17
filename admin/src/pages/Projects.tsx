@@ -9,11 +9,11 @@ import {
   adminUpdateProject,
   adminDeleteProject,
   adminListUsers,
-} from "../api";
+} from "../lib/adminApi";
 import type { User, Project, Paginated } from "../types";
 import ProjectsTable from "../components/ProjectsTable";
 
-/* ---------- Модалка создания проекта ---------- */
+/* --- модалка создания --- */
 function CreateProjectModal({
   open,
   onClose,
@@ -139,7 +139,7 @@ function CreateProjectModal({
   );
 }
 
-/* ---------------------------- Страница ---------------------------- */
+/* --- страница --- */
 export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Project[]>([]);
@@ -200,10 +200,8 @@ export default function ProjectsPage() {
   }
 
   return (
-    // ==== FULL-BLEED, как в Contacts.tsx ====
     <div style={{ width: "100vw", marginLeft: "calc(50% - 50vw)" }}>
       <div style={{ display: "grid", gap: 12, width: "100%", paddingInline: 16, boxSizing: "border-box" }}>
-        {/* Панель фильтров/кнопок */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", width: "100%" }}>
           <input
             value={q}
@@ -219,7 +217,6 @@ export default function ProjectsPage() {
           </button>
         </div>
 
-        {/* Контент */}
         {loading ? (
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, width: "100%" }}>
             Загрузка…
@@ -237,7 +234,6 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* модалка */}
       <CreateProjectModal open={openCreate} onClose={() => setOpenCreate(false)} staff={staff} clients={clients} onCreate={handleCreate} />
     </div>
   );
