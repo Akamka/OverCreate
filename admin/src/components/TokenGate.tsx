@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSavedToken, saveToken, clearToken } from "../api";
+import { getSavedToken, saveAdminToken, clearAdminToken } from "../lib/adminApi";
 
 export default function TokenGate({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export default function TokenGate({ children }: { children: React.ReactNode }) {
           style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #d1d5db" }}
         />
         <button
-          onClick={() => { if (val.trim()) { saveToken(val.trim()); setToken(val.trim()); } }}
+          onClick={() => { if (val.trim()) { saveAdminToken(val.trim()); setToken(val.trim()); } }}
           style={{ marginTop: 12, width: "100%", padding: "10px 12px", borderRadius: 12, background: "#111", color: "#fff" }}
         >
           Войти
@@ -36,7 +36,10 @@ export default function TokenGate({ children }: { children: React.ReactNode }) {
     <div>
       <div style={{ marginBottom: 12, color: "#6b7280", fontSize: 14 }}>
         Токен применён.{" "}
-        <button onClick={() => { clearToken(); setToken(null); }} style={{ textDecoration: "underline" }}>
+        <button
+          onClick={() => { clearAdminToken(); setToken(null); }}
+          style={{ textDecoration: "underline" }}
+        >
           Сменить
         </button>
       </div>

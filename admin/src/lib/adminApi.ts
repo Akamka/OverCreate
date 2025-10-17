@@ -5,6 +5,7 @@ import type {
   ContactSubmission,
   Project,
   User,
+  ContactStatus,
 } from "../types";
 
 /* ================= BASE & TOKEN ================= */
@@ -26,13 +27,17 @@ const ADMIN_TOKEN_ENV: string | undefined =
   (VITE_DEFAULT_ADMIN_TOKEN && VITE_DEFAULT_ADMIN_TOKEN.trim()) ||
   undefined;
 
+const LS_KEY = "ADMIN_TOKEN";
+
 export function getSavedToken(): string | undefined {
   const ls = typeof localStorage !== "undefined" ? localStorage : undefined;
-  return ADMIN_TOKEN_ENV || ls?.getItem("ADMIN_TOKEN") || ls?.getItem("token") || undefined;
+  return ADMIN_TOKEN_ENV || ls?.getItem(LS_KEY) || undefined;
 }
-
 export function saveAdminToken(t: string): void {
-  if (typeof localStorage !== "undefined") localStorage.setItem("ADMIN_TOKEN", t);
+  if (typeof localStorage !== "undefined") localStorage.setItem(LS_KEY, t);
+}
+export function clearAdminToken(): void {
+  if (typeof localStorage !== "undefined") localStorage.removeItem(LS_KEY);
 }
 
 function requireToken(): string {
@@ -205,14 +210,35 @@ export async function listContactSubmissions(
   tokenOrUndefined?: string,
   pageUrl?: string
 ): Promise<Paginated<ContactSubmission>> {
+  // сохраняем токен, если передали вручную
   if (tokenOrUndefined) saveAdminToken(tokenOrUndefined);
 
   if (pageUrl) {
     const url = new URL(pageUrl);
-    // передаём только путь+query этой же API
     return adminFetch<Paginated<ContactSubmission>>(url.pathname + url.search);
   }
   return adminFetch<Paginated<ContactSubmission>>(`/api/admin/contact-submissions`);
+}
+
+export async function adminUpdateContactStatus(
+  id: number,
+  status: ContactStatus
+): Promise<ContactSubmission> {
+  return adminFetch<ContactSubmission>(`/api/admin/contact-submissions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function adminDeleteContact(id: number): Promise<void> {
+  await adminFetch<void>(`/api/admin/contact-submissions/${id}`, { method: "DELETE" });
+}
+
+export async function adminBulkDeleteContacts(ids: number[]): Promise<void> {
+  for (const id of ids) {
+    // eslint-disable-next-line no-await-in-loop
+    await adminDeleteContact(id);
+  }
 }
 
 /* ================= USERS ================= */

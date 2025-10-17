@@ -10,7 +10,7 @@ import {
   adminDeleteContact,
   adminUpdateContactStatus,
   adminBulkDeleteContacts,
-} from "../api";
+} from "../lib/adminApi";
 
 type Props = {
   items: ContactSubmission[];
@@ -51,7 +51,7 @@ export default function ContactsTable({
     if (!confirm(`Удалить заявку #${id}?`)) return;
     setBusy(true);
     try {
-      await adminDeleteContact(getAdminTokenOrThrow(), id);
+      await adminDeleteContact(id);
       const next = items.filter((x) => x.id !== id);
       setSelected((s) => {
         const ns = new Set(s);
@@ -67,11 +67,7 @@ export default function ContactsTable({
   async function doUpdateOne(id: number, status: ContactStatus) {
     setBusy(true);
     try {
-      const upd = await adminUpdateContactStatus(
-        getAdminTokenOrThrow(),
-        id,
-        status
-      );
+      const upd = await adminUpdateContactStatus(id, status);
       const next = items.map((x) => (x.id === id ? upd : x));
       onChangeLocal?.(next);
     } finally {
@@ -85,7 +81,7 @@ export default function ContactsTable({
     if (!confirm(`Удалить выбранные (${ids.length})?`)) return;
     setBusy(true);
     try {
-      await adminBulkDeleteContacts(getAdminTokenOrThrow(), ids);
+      await adminBulkDeleteContacts(ids);
       const next = items.filter((x) => !selected.has(x.id));
       setSelected(new Set());
       onChangeLocal?.(next);
@@ -94,7 +90,6 @@ export default function ContactsTable({
     }
   }
 
-  // компактные стили и утилки для эллипсиса
   const thBase: React.CSSProperties = {
     textAlign: "left",
     padding: "6px 8px",
@@ -128,22 +123,21 @@ export default function ContactsTable({
     );
   }
 
-  // скрываем часть колонок на узких экранах
   const narrow = typeof window !== "undefined" && window.innerWidth < 1360;
 
   return (
     <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 16,
-          padding: 12,
-          width: "100%",        // ← тянем на всю ширину контейнера
-          maxWidth: "none",
-          margin: 0,            // ← точно без авто-центровки
-          justifySelf: "stretch",
-        }}
->
+      style={{
+        background: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 16,
+        padding: 12,
+        width: "100%",
+        maxWidth: "none",
+        margin: 0,
+        justifySelf: "stretch",
+      }}
+    >
       {/* верхняя панель */}
       <div
         style={{
@@ -183,13 +177,13 @@ export default function ContactsTable({
         </button>
       </div>
 
-      {/* таблица без горизонтального скролла */}
+      {/* таблица */}
       <div style={{ overflowX: "hidden" }}>
         <table
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            tableLayout: "fixed", // фиксируем ширины
+            tableLayout: "fixed",
             fontSize: 13,
           }}
         >
@@ -256,7 +250,6 @@ export default function ContactsTable({
                   </td>
                 )}
                 <td style={{ ...tdBase, whiteSpace: "normal" }}>
-                  {/* двухстрочный clamp для сообщения */}
                   <div
                     title={x.message}
                     style={{
@@ -359,10 +352,4 @@ export default function ContactsTable({
       )}
     </div>
   );
-}
-
-function getAdminTokenOrThrow(): string {
-  const t = localStorage.getItem("oc_admin_token");
-  if (!t) throw new Error("Admin token is missing");
-  return t;
 }
