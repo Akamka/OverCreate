@@ -11,34 +11,31 @@ declare global {
   }
 }
 
-/* -------------------- локальные типы -------------------- */
+/* ---------------- types ---------------- */
 type AuthPayload = { auth: string; [k: string]: unknown };
 type AuthorizeCallback = (error: Error | null, data: AuthPayload | null) => void;
 type AuthorizerOptions = { authEndpoint?: string };
 type ChannelLike = { name: string };
 
-/** минимальный конфиг для Echo; держим без any */
-type EchoInit = {
+type EchoCfg = {
   broadcaster: 'pusher';
   key: string;
-
-  // pusher cloud
+  // cloud
   cluster?: string;
   forceTLS?: boolean;
-
-  // soketi/ws
+  // ws
   wsHost?: string;
   wsPort?: number;
   wssPort?: number;
 
-  // общее
   disableStats?: boolean;
   enabledTransports?: ReadonlyArray<'ws' | 'wss'>;
-
   authorizer: ReturnType<typeof makeAuthorizer>;
 };
 
-/* -------------------- authorizer для Laravel -------------------- */
+type EchoCtor = new (opts: Record<string, unknown>) => Echo<'pusher'>;
+
+/* -------------- authorizer for Laravel -------------- */
 function makeAuthorizer() {
   return (channel: ChannelLike, options: AuthorizerOptions) => ({
     authorize(socketId: string, callback: AuthorizeCallback): void {
@@ -46,7 +43,7 @@ function makeAuthorizer() {
         try {
           const token = getToken();
           const apiBase =
-            process.env.NEXT_PUBLIC_API_BASE ?? `${window.location.origin}`;
+            process.env.NEXT_PUBLIC_API_BASE ?? window.location.origin;
           const endpoint =
             options.authEndpoint ??
             `${apiBase.replace(/\/$/, '')}/broadcasting/auth`;
@@ -74,18 +71,14 @@ function makeAuthorizer() {
           const data = (await res.json()) as AuthPayload;
           callback(null, data);
         } catch (e) {
-          const err = e instanceof Error ? e : new Error('Auth failed');
-          callback(err, null);
+          callback(e instanceof Error ? e : new Error('Auth failed'), null);
         }
       })();
     },
   });
 }
 
-/* тип «конструктор Echo», чтобы не использовать any/unknown в new Echo(...) */
-type EchoCtor = new (opts: Record<string, unknown>) => Echo<'pusher'>;
-
-/* -------------------- инициализация Echo -------------------- */
+/* -------------- Echo init -------------- */
 export function getEcho(): Echo<'pusher'> | null {
   if (typeof window === 'undefined') return null;
   if (window.__echo) return window.__echo;
@@ -93,44 +86,42 @@ export function getEcho(): Echo<'pusher'> | null {
   window.Pusher = Pusher;
 
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY ?? 'local';
-  const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+  const clusterEnv = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
   const wsHost = process.env.NEXT_PUBLIC_WS_HOST;
   const wsPort = Number(process.env.NEXT_PUBLIC_WS_PORT ?? 6001);
 
   const authorizer = makeAuthorizer();
 
-  const common = {
-    broadcaster: 'pusher' as const,
-    key,
-    disableStats: true,
-    enabledTransports: ['ws', 'wss'] as const,
-    authorizer,
-  };
+  // Если указан wsHost — используем WS; иначе — Channels (с дефолтным кластером)
+  const cfg: EchoCfg | null = wsHost
+    ? {
+        broadcaster: 'pusher',
+        key,
+        wsHost,
+        wsPort,
+        wssPort: wsPort,
+        forceTLS: window.location.protocol === 'https:',
+        disableStats: true,
+        enabledTransports: ['ws', 'wss'],
+        authorizer,
+      }
+    : {
+        broadcaster: 'pusher',
+        key,
+        cluster: (clusterEnv && clusterEnv.trim()) || 'mt1', // <- дефолт
+        forceTLS: true,
+        disableStats: true,
+        enabledTransports: ['ws', 'wss'],
+        authorizer,
+      };
 
-  const cfgCloud: EchoInit | null =
-    cluster && cluster !== ''
-      ? {
-          ...common,
-          cluster,
-          forceTLS: true,
-        }
-      : null;
+  if (!cfg) {
+    // сюда не попадём, но оставлю guard на случай будущих изменений
+    // eslint-disable-next-line no-console
+    console.error('[Echo] Missing configuration: set NEXT_PUBLIC_WS_HOST or NEXT_PUBLIC_PUSHER_CLUSTER');
+    return null;
+  }
 
-  const cfgWs: EchoInit | null =
-    wsHost && wsHost !== ''
-      ? {
-          ...common,
-          wsHost,
-          wsPort,
-          wssPort: wsPort,
-          forceTLS: window.location.protocol === 'https:',
-        }
-      : null;
-
-  // берём один из конфигов (cloud или ws)
-  const cfg: EchoInit = (cfgCloud ?? cfgWs)!;
-
-  // создаём через типизированный «конструктор»
   const EchoClass = Echo as unknown as EchoCtor;
   const echo = new EchoClass(cfg as Record<string, unknown>);
 
