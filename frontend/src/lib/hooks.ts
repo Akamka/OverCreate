@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
 import { apiGet, apiSend, apiSendForm, getToken } from './api';
-import { getEcho, projectChannel } from './realtime';
+import { getEcho } from './realtime';
 
 import type { User } from '@/types/user';
 import type { Project } from '@/types/project';
@@ -11,12 +11,6 @@ import type { Message } from '@/types/message';
 import type { Paginated } from './api';
 
 type HttpishError = Error & { status?: number };
-
-function isPaginated<T>(val: unknown): val is { data: T[] } {
-  if (typeof val !== 'object' || val === null) return false;
-  const maybe = val as { data?: unknown };
-  return Array.isArray(maybe.data);
-}
 
 /** Текущий пользователь */
 export function useMe() {
@@ -40,7 +34,7 @@ export function useMe() {
   };
 }
 
-/** Список проектов пользователя */
+/** Проекты пользователя */
 export function useProjects(enabled = true) {
   const token = getToken();
   const key = enabled && token ? ['/projects', token] : null;
@@ -54,7 +48,7 @@ export function useProjects(enabled = true) {
   return { projects: data?.data ?? [], error, isLoading };
 }
 
-/** Один проект по id */
+/** Проект по id */
 export function useProject(id: number | undefined) {
   const token = getToken();
   const key =
@@ -72,17 +66,10 @@ export function useProject(id: number | undefined) {
 /** Сообщения + realtime */
 export function useMessages(projectId: string | null | undefined) {
   const key = projectId ? `/projects/${projectId}/messages` : null;
-
-  const { data, mutate } = useSWR<Message[]>(
-    key,
-    async (k: string) => {
-      const res = await apiGet<unknown>(k);
-      if (Array.isArray(res)) return res as Message[];
-      if (isPaginated<Message>(res)) return res.data;
-      return [];
-    },
-    { revalidateOnFocus: false, shouldRetryOnError: false }
-  );
+  const { data, mutate } = useSWR<Message[]>(key, apiGet, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  });
 
   async function send(body: string, files?: File[]) {
     if (!projectId) return;
@@ -101,22 +88,37 @@ export function useMessages(projectId: string | null | undefined) {
     await mutate([...(data ?? []), msg], { revalidate: false });
   }
 
+  // Подписка на сокет
   useEffect(() => {
     if (!projectId) return;
-    if (!getToken()) return; // приватные каналы требуют токен
+    const echo = getEcho();
+    if (!echo) return;
 
-    const ch = projectChannel(projectId);
-    if (!ch) return;
+    // если на сервере private-канал — используем private, иначе public
+    const publicChannel = echo.channel(`project.${projectId}`);
+    const privateChannel = echo.private(`project.${projectId}`);
 
-    const handler = (e: { message: Message }) => {
-      mutate([...(data ?? []), e.message], { revalidate: false });
+    const pushUnique = (msg: Message) => {
+      const prev = data ?? [];
+      const exists = prev.some((m) => m.id === msg.id);
+      if (!exists) void mutate([...prev, msg], { revalidate: false });
     };
 
-    ch.listen('.message.created', handler);
+    type ServerEvent = { message?: Message };
+
+    const handler = (evt: ServerEvent) => {
+      const msg = evt.message;
+      if (msg && typeof msg.id === 'number') pushUnique(msg);
+    };
+
+    publicChannel.listen('.message.created', handler);
+    privateChannel.listen('.message.created', handler);
 
     return () => {
-      ch.stopListening('.message.created', handler);
-      getEcho()?.leave(ch.name);
+      publicChannel.stopListening('.message.created', handler);
+      privateChannel.stopListening('.message.created', handler);
+      echo.leave(`project.${projectId}`);
+      echo.leave(`private-project.${projectId}`);
     };
   }, [projectId, data, mutate]);
 
