@@ -204,22 +204,22 @@ export async function adminDeletePortfolio(id: number): Promise<void> {
   await adminFetch<void>(`/api/admin/portfolio/${id}`, { method: "DELETE" });
 }
 
-/* ================= CONTACT SUBMISSIONS ================= */
+// ======== CONTACT SUBMISSIONS ========
 
+// список (публичный роут, без /admin, поэтому токен не нужен)
 export async function listContactSubmissions(
-  tokenOrUndefined?: string,
+  _tokenOrUndefined?: string,
   pageUrl?: string
 ): Promise<Paginated<ContactSubmission>> {
-  // сохраняем токен, если передали вручную
-  if (tokenOrUndefined) saveAdminToken(tokenOrUndefined);
-
   if (pageUrl) {
-    const url = new URL(pageUrl);
-    return adminFetch<Paginated<ContactSubmission>>(url.pathname + url.search);
+    const u = new URL(pageUrl);
+    return adminFetch<Paginated<ContactSubmission>>(u.pathname + u.search);
   }
-  return adminFetch<Paginated<ContactSubmission>>(`/api/admin/contact-submissions`);
+  // ВНИМАНИЕ: тут именно публичный путь
+  return adminFetch<Paginated<ContactSubmission>>(`/api/contact-submissions`);
 }
 
+// обновление статуса — админ-роут
 export async function adminUpdateContactStatus(
   id: number,
   status: ContactStatus
@@ -230,16 +230,21 @@ export async function adminUpdateContactStatus(
   });
 }
 
+// удаление — админ-роут
 export async function adminDeleteContact(id: number): Promise<void> {
-  await adminFetch<void>(`/api/admin/contact-submissions/${id}`, { method: "DELETE" });
+  await adminFetch<void>(`/api/admin/contact-submissions/${id}`, {
+    method: "DELETE",
+  });
 }
 
+// массовое удаление — простая обёртка
 export async function adminBulkDeleteContacts(ids: number[]): Promise<void> {
   for (const id of ids) {
     // eslint-disable-next-line no-await-in-loop
     await adminDeleteContact(id);
   }
 }
+
 
 /* ================= USERS ================= */
 
