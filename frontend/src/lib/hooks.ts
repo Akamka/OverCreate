@@ -63,7 +63,7 @@ export function useProject(id: number | undefined) {
   return { project: data ?? null, error, isLoading, mutate };
 }
 
-/** Сообщения + realtime */
+/** Сообщения + realtime (private/public, антидубли, оптимистичная отправка) */
 export function useMessages(projectId: string | null | undefined) {
   const key = projectId ? `/projects/${projectId}/messages` : null;
   const { data, mutate } = useSWR<Message[]>(key, apiGet, {
@@ -71,56 +71,118 @@ export function useMessages(projectId: string | null | undefined) {
     shouldRetryOnError: false,
   });
 
+  // ---- отправка (с оптимистичным локальным сообщением) ----
   async function send(body: string, files?: File[]) {
     if (!projectId) return;
 
-    if (!files || files.length === 0) {
-      const msg = await apiSend<Message>(`/projects/${projectId}/messages`, 'POST', { body });
-      await mutate([...(data ?? []), msg], { revalidate: false });
-      return;
+    const trimmed = body.trim();
+    // Временный отрицательный id, чтобы не конфликтовать с серверными
+    const tempId = -Date.now();
+
+    // оптимистичное локальное сообщение
+    const optimistic: Message & { state: 'sending'; isMine: true } = {
+      id: tempId,
+      body: trimmed,
+      created_at: new Date().toISOString(),
+      sender: undefined,
+      attachments: [],
+      // локальные поля для UI:
+
+      state: 'sending',
+
+      isMine: true,
+    };
+
+    mutate([...(data ?? []), optimistic], { revalidate: false });
+
+    try {
+      let saved: Message;
+      if (!files || files.length === 0) {
+        const payload = trimmed ? { body: trimmed } : {};
+        saved = await apiSend<Message>(`/projects/${projectId}/messages`, 'POST', payload);
+      } else {
+        const form = new FormData();
+        if (trimmed) form.append('body', trimmed);
+        files.forEach((f) => form.append('files[]', f));
+        saved = await apiSendForm<Message>(`/projects/${projectId}/messages`, form, 'POST');
+      }
+
+      // заменяем оптимистичное сообщение реальным
+      mutate((prev) => {
+        const list = prev ?? [];
+        const withoutTemp = list.filter((m) => m.id !== tempId);
+        // если realtime уже принёс это сообщение — не дублируем
+        if (withoutTemp.some((m) => m.id === saved.id)) return withoutTemp;
+        return [...withoutTemp, saved];
+      }, { revalidate: false });
+    } catch (e) {
+      // помечаем ошибку на оптимистичном
+      mutate((prev) =>
+        (prev ?? []).map((m) =>
+          m.id === tempId
+
+            ? { ...m, state: 'error' }
+            : m
+        ),
+        { revalidate: false }
+      );
+      throw e;
     }
-
-    const form = new FormData();
-    if (body?.trim()) form.append('body', body.trim());
-    files.forEach((f) => form.append('files[]', f));
-
-    const msg = await apiSendForm<Message>(`/projects/${projectId}/messages`, form, 'POST');
-    await mutate([...(data ?? []), msg], { revalidate: false });
   }
 
-  // Подписка на сокет
+  // ---- realtime подписка ----
   useEffect(() => {
     if (!projectId) return;
+
     const echo = getEcho();
     if (!echo) return;
 
-    // если на сервере private-канал — используем private, иначе public
+    // Сервисы могут слать и в public, и в private — слушаем оба безопасно
     const publicChannel = echo.channel(`project.${projectId}`);
     const privateChannel = echo.private(`project.${projectId}`);
 
-    const pushUnique = (msg: Message) => {
-      const prev = data ?? [];
-      const exists = prev.some((m) => m.id === msg.id);
-      if (!exists) void mutate([...prev, msg], { revalidate: false });
+    const pushUnique = (msg: Message): void => {
+      mutate((prev) => {
+        const list = prev ?? [];
+        if (typeof msg.id === 'number' && list.some((m) => m.id === msg.id)) {
+          return list; // антидубль
+        }
+        return [...list, msg];
+      }, { revalidate: false });
     };
 
-    type ServerEvent = { message?: Message };
+    // Событие может прийти либо как { message }, либо прямо Message
+    type EventPayload = Message | { message?: Message };
 
-    const handler = (evt: ServerEvent) => {
-      const msg = evt.message;
+    const handler = (payload: EventPayload): void => {
+      const msg: Message | undefined =
+        (payload as { message?: Message }).message ?? (payload as Message);
       if (msg && typeof msg.id === 'number') pushUnique(msg);
     };
 
-    publicChannel.listen('.message.created', handler);
-    privateChannel.listen('.message.created', handler);
+    // разные варианты имени события
+    const eventNames = [
+      '.message.created',
+      'MessageCreated',
+      'App\\Events\\MessageCreated',
+    ] as const;
+
+    eventNames.forEach((ev) => {
+      publicChannel.listen(ev, handler);
+      privateChannel.listen(ev, handler);
+    });
 
     return () => {
-      publicChannel.stopListening('.message.created', handler);
-      privateChannel.stopListening('.message.created', handler);
+      eventNames.forEach((ev) => {
+        publicChannel.stopListening(ev, handler);
+        privateChannel.stopListening(ev, handler);
+      });
+      // отписка от обоих вариантов имени канала
       echo.leave(`project.${projectId}`);
       echo.leave(`private-project.${projectId}`);
     };
-  }, [projectId, data, mutate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   return { messages: data ?? [], send, mutate };
 }
