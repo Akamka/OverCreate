@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
 import { apiGet, apiSend, apiSendForm, getToken } from './api';
-import { getEcho } from './realtime';
+import { getEcho, projectChannel } from './realtime';
 
 import type { User } from '@/types/user';
 import type { Project } from '@/types/project';
@@ -12,9 +12,14 @@ import type { Paginated } from './api';
 
 type HttpishError = Error & { status?: number };
 
+function isPaginated<T>(val: unknown): val is { data: T[] } {
+  if (typeof val !== 'object' || val === null) return false;
+  const maybe = val as { data?: unknown };
+  return Array.isArray(maybe.data);
+}
+
 /** Текущий пользователь */
 export function useMe() {
-  // ключ зависит от токена — SWR перезапустится сразу после логина/логаута
   const token = getToken();
   const key = token ? ['/me', token] : null;
 
@@ -35,7 +40,7 @@ export function useMe() {
   };
 }
 
-/** Список проектов пользователя (грузим ТОЛЬКО когда есть токен) */
+/** Список проектов пользователя */
 export function useProjects(enabled = true) {
   const token = getToken();
   const key = enabled && token ? ['/projects', token] : null;
@@ -49,7 +54,7 @@ export function useProjects(enabled = true) {
   return { projects: data?.data ?? [], error, isLoading };
 }
 
-/** Один проект по id (тоже ждём токен) */
+/** Один проект по id */
 export function useProject(id: number | undefined) {
   const token = getToken();
   const key =
@@ -64,10 +69,20 @@ export function useProject(id: number | undefined) {
   return { project: data ?? null, error, isLoading, mutate };
 }
 
-/** Сообщения + realtime (ждём projectId И токен, иначе не подписываемся/не грузим) */
+/** Сообщения + realtime */
 export function useMessages(projectId: string | null | undefined) {
   const key = projectId ? `/projects/${projectId}/messages` : null;
-  const { data, mutate } = useSWR<Message[]>(key, apiGet);
+
+  const { data, mutate } = useSWR<Message[]>(
+    key,
+    async (k: string) => {
+      const res = await apiGet<unknown>(k);
+      if (Array.isArray(res)) return res as Message[];
+      if (isPaginated<Message>(res)) return res.data;
+      return [];
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
 
   async function send(body: string, files?: File[]) {
     if (!projectId) return;
@@ -88,18 +103,20 @@ export function useMessages(projectId: string | null | undefined) {
 
   useEffect(() => {
     if (!projectId) return;
-    const echo = getEcho();
-    if (!echo) return;
-    const channel = echo.channel(`project.${projectId}`);
+    if (!getToken()) return; // приватные каналы требуют токен
+
+    const ch = projectChannel(projectId);
+    if (!ch) return;
 
     const handler = (e: { message: Message }) => {
       mutate([...(data ?? []), e.message], { revalidate: false });
     };
 
-    channel.listen('.message.created', handler);
+    ch.listen('.message.created', handler);
+
     return () => {
-      channel.stopListening('.message.created', handler);
-      echo.leave(`project.${projectId}`);
+      ch.stopListening('.message.created', handler);
+      getEcho()?.leave(ch.name);
     };
   }, [projectId, data, mutate]);
 
