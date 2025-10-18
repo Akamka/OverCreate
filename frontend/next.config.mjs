@@ -21,14 +21,16 @@ const nextConfig = {
     ];
   },
 
-  images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/storage/**' },
-      // на случай локальной разработки
-      { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/storage/**' },
-      { protocol: 'http', hostname: 'localhost',  port: '8080', pathname: '/storage/**' },
-    ],
-  },
+// next.config.mjs
+images: {
+  remotePatterns: [
+    { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/storage/**' },
+    { protocol: 'http',  hostname: 'api.overcreate.co', pathname: '/storage/**' }, // ← добавить
+    { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/storage/**' },
+    { protocol: 'http', hostname: 'localhost',  port: '8080', pathname: '/storage/**' },
+  ],
+},
+
 };
 
 export default nextConfig;

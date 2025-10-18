@@ -1,3 +1,4 @@
+// src/lib/realtime.ts
 'use client';
 
 import Echo from 'laravel-echo';
@@ -11,35 +12,32 @@ declare global {
   }
 }
 
-/** минимальные типы под кастомный authorizer */
 type ChannelLike = { name: string };
 type ChannelAuthData = { auth: string; channel_data?: string };
 type AuthorizeCallback = (err: Error | null, data: ChannelAuthData | null) => void;
-
-/** точный тип аргумента конструктора Echo для pusher-броадкастера */
 type EchoCtorArg = ConstructorParameters<typeof Echo<'pusher'>>[0];
 
-/** Ленивая инициализация Echo (Pusher/Soketi) */
 export function getEcho(): Echo<'pusher'> | null {
   if (typeof window === 'undefined') return null;
   if (window.__echo) return window.__echo;
 
-  // laravel-echo ожидает window.Pusher
   window.Pusher = Pusher;
 
-  const isHttps = window.location.protocol === 'https:';
-
-  // Pusher Cloud / soketi
+  // ОБЯЗАТЕЛЬНО: ключ на фронте == ключу на бэке
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY ?? 'local';
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1';
 
-  // Где крутится soketi (или pusher-compatible шлюз)
+  // Куда реально идёт WebSocket
   const wsHost = process.env.NEXT_PUBLIC_WS_HOST ?? window.location.hostname;
-  const wsPort = Number(process.env.NEXT_PUBLIC_WS_PORT ?? (isHttps ? 443 : 6001));
+  const wsPort = Number(process.env.NEXT_PUBLIC_WS_PORT ?? 6001);
 
-  // ВАЖНО: абсолютный URL до бэкенда!
+  // URL авторизации (всегда абсолютный к API)
   const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? '').replace(/\/+$/, '');
   const authUrl = `${apiBase}/broadcasting/auth`;
+
+  // Если у вас wss-прокси — поставьте forceTLS: true и enabledTransports: ['wss']
+  const useTLS = false; // ← для вашего текущего 6001 без TLS
+  const transports = (useTLS ? ['wss'] : ['ws', 'wss']) as ('ws' | 'wss')[];
 
   const opts: EchoCtorArg = {
     broadcaster: 'pusher',
@@ -48,18 +46,15 @@ export function getEcho(): Echo<'pusher'> | null {
     wsHost,
     wsPort,
     wssPort: wsPort,
-    forceTLS: isHttps || key !== 'local',
+    forceTLS: useTLS,
     disableStats: true,
-    // тип у опции — простой массив строк, поэтому без readonly-литералов:
-    enabledTransports: isHttps ? (['wss'] as ('ws' | 'wss')[]) : (['ws', 'wss'] as ('ws' | 'wss')[]),
+    enabledTransports: transports,
 
-    /** Кастомный authorizer — POST на БЭК с Bearer токеном */
-    authorizer(channel: ChannelLike /*, _opts?: unknown */) {
+    authorizer(channel: ChannelLike) {
       return {
         async authorize(socketId: string, callback: AuthorizeCallback) {
           try {
             const token = getToken();
-
             const res = await fetch(authUrl, {
               method: 'POST',
               headers: {
@@ -79,7 +74,7 @@ export function getEcho(): Echo<'pusher'> | null {
               return;
             }
 
-            const data = (await res.json()) as ChannelAuthData; // { auth, channel_data? }
+            const data = (await res.json()) as ChannelAuthData;
             callback(null, data);
           } catch (e) {
             callback(e as Error, null);
