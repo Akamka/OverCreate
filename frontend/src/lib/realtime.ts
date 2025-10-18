@@ -1,4 +1,3 @@
-// src/lib/realtime.ts
 'use client';
 
 import Echo from 'laravel-echo';
@@ -12,32 +11,32 @@ declare global {
   }
 }
 
+/** минимальные типы под кастомный authorizer */
 type ChannelLike = { name: string };
 type ChannelAuthData = { auth: string; channel_data?: string };
 type AuthorizeCallback = (err: Error | null, data: ChannelAuthData | null) => void;
+
+/** точный тип аргумента конструктора Echo для pusher-броадкастера */
 type EchoCtorArg = ConstructorParameters<typeof Echo<'pusher'>>[0];
 
+/** Ленивая инициализация Echo (Pusher/Soketi) */
 export function getEcho(): Echo<'pusher'> | null {
   if (typeof window === 'undefined') return null;
   if (window.__echo) return window.__echo;
 
   window.Pusher = Pusher;
 
-  // ОБЯЗАТЕЛЬНО: ключ на фронте == ключу на бэке
-  const key = process.env.NEXT_PUBLIC_PUSHER_KEY ?? 'local';
+  const isHttps = window.location.protocol === 'https:';
+
+  const key     = process.env.NEXT_PUBLIC_PUSHER_KEY ?? 'local';
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1';
 
-  // Куда реально идёт WebSocket
   const wsHost = process.env.NEXT_PUBLIC_WS_HOST ?? window.location.hostname;
-  const wsPort = Number(process.env.NEXT_PUBLIC_WS_PORT ?? 6001);
+  const wsPort = Number(process.env.NEXT_PUBLIC_WS_PORT ?? (isHttps ? 443 : 6001));
 
-  // URL авторизации (всегда абсолютный к API)
+  // В ПРОДЕ — абсолютный URL к API! (например, https://api.overcreate.co)
   const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? '').replace(/\/+$/, '');
   const authUrl = `${apiBase}/broadcasting/auth`;
-
-  // Если у вас wss-прокси — поставьте forceTLS: true и enabledTransports: ['wss']
-  const useTLS = false; // ← для вашего текущего 6001 без TLS
-  const transports = (useTLS ? ['wss'] : ['ws', 'wss']) as ('ws' | 'wss')[];
 
   const opts: EchoCtorArg = {
     broadcaster: 'pusher',
@@ -46,9 +45,9 @@ export function getEcho(): Echo<'pusher'> | null {
     wsHost,
     wsPort,
     wssPort: wsPort,
-    forceTLS: useTLS,
+    forceTLS: isHttps || key !== 'local',
     disableStats: true,
-    enabledTransports: transports,
+    enabledTransports: isHttps ? (['wss'] as ('ws'|'wss')[]) : (['ws','wss'] as ('ws'|'wss')[]),
 
     authorizer(channel: ChannelLike) {
       return {

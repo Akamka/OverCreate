@@ -17,7 +17,7 @@ class MessageController extends Controller
         $this->authorizeProject($request->user()?->id, $project);
 
         return $project->messages()
-            ->with(['sender:id,name','attachments'])
+            ->with(['sender:id,name', 'attachments'])
             ->orderBy('id')
             ->get();
     }
@@ -26,22 +26,20 @@ class MessageController extends Controller
     {
         $this->authorizeProject($request->user()?->id, $project);
 
-        // multipart: body опционально, files[]=...
         $validated = $request->validate([
-            'body' => ['nullable','string','max:5000'],
-            'files' => ['nullable','array','max:10'],
+            'body' => ['nullable', 'string', 'max:5000'],
+            'files' => ['nullable', 'array', 'max:10'],
             'files.*' => [
                 'file',
-                'max:20480', // 20MB на файл
+                'max:20480',
                 'mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/mp3,audio/wav,audio/ogg,application/pdf,application/zip,application/x-zip-compressed,text/plain',
             ],
         ]);
 
-        // если нет текста и нет файлов — ошибка
-        $hasBody  = !empty($validated['body']);
+        $hasBody  = filled($validated['body'] ?? null);
         $hasFiles = count($request->file('files', [])) > 0;
         if (!$hasBody && !$hasFiles) {
-            return response()->json(['error' => 'Пустое сообщение'], 422);
+            return response()->json(['message' => 'Пустое сообщение'], 422);
         }
 
         $msg = Message::create([
@@ -50,9 +48,8 @@ class MessageController extends Controller
             'body'       => $validated['body'] ?? '',
         ]);
 
-        // сохраняем вложения
         $files  = $request->file('files', []);
-        $disk   = config('filesystems.default', 'public'); // у тебя public
+        $disk   = config('filesystems.default', 'public');
         $baseDir = "chat/{$project->id}/".date('Y/m');
 
         foreach ($files as $file) {
@@ -60,13 +57,11 @@ class MessageController extends Controller
             $name = Str::uuid()->toString().($ext ? '.'.$ext : '');
             $path = $file->storePubliclyAs($baseDir, $name, $disk);
 
-            // Для public-диска формируем URL так (и IDE не ругается):
-            $url  = asset('storage/'.$path);
-            // Если понадобится через фасад:
-            // $url = Storage::disk($disk)->url($path);
+            // корректный публичный URL (требует php artisan storage:link)
+            $url  = Storage::disk($disk)->url($path);
 
             $mime = $file->getClientMimeType() ?: $file->getMimeType();
-            $size = $file->getSize() ?? 0;
+            $size = (int) ($file->getSize() ?? 0);
 
             $width = $height = $duration = null;
             if (str_starts_with((string) $mime, 'image/')) {
@@ -86,9 +81,14 @@ class MessageController extends Controller
             ]);
         }
 
-        $msg->load(['sender:id,name','attachments']);
+        $msg->load(['sender:id,name', 'attachments']);
 
-        broadcast(new MessageCreated($msg))->toOthers();
+        // ⚠️ НЕ роняем запрос, если брокер недоступен — иначе фронт получает 500
+        try {
+            broadcast(new MessageCreated($msg))->toOthers();
+        } catch (\Throwable $e) {
+            \Log::warning('Broadcast failed: '.$e->getMessage());
+        }
 
         return response()->json($msg, 201);
     }

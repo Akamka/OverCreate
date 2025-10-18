@@ -12,7 +12,6 @@ import type { Paginated } from './api';
 
 type HttpishError = Error & { status?: number };
 
-/** Текущий пользователь */
 export function useMe() {
   const token = getToken();
   const key = token ? ['/me', token] : null;
@@ -34,7 +33,6 @@ export function useMe() {
   };
 }
 
-/** Проекты пользователя */
 export function useProjects(enabled = true) {
   const token = getToken();
   const key = enabled && token ? ['/projects', token] : null;
@@ -48,7 +46,6 @@ export function useProjects(enabled = true) {
   return { projects: data?.data ?? [], error, isLoading };
 }
 
-/** Проект по id */
 export function useProject(id: number | undefined) {
   const token = getToken();
   const key =
@@ -63,7 +60,6 @@ export function useProject(id: number | undefined) {
   return { project: data ?? null, error, isLoading, mutate };
 }
 
-/** Сообщения + realtime */
 export function useMessages(projectId: string | null | undefined) {
   const key = projectId ? `/projects/${projectId}/messages` : null;
 
@@ -72,13 +68,11 @@ export function useMessages(projectId: string | null | undefined) {
     shouldRetryOnError: false,
   });
 
-  // отправка
   async function send(body: string, files?: File[]) {
     if (!projectId) return;
 
     if (!files || files.length === 0) {
       const msg = await apiSend<Message>(`/projects/${projectId}/messages`, 'POST', { body });
-      // моментально добавляем локально
       await mutate(prev => ([...(prev ?? []), msg]), { revalidate: false });
       return;
     }
@@ -91,13 +85,11 @@ export function useMessages(projectId: string | null | undefined) {
     await mutate(prev => ([...(prev ?? []), msg]), { revalidate: false });
   }
 
-  // realtime-подписка (ТОЛЬКО private)
   useEffect(() => {
     if (!projectId) return;
     const echo = getEcho();
     if (!echo) return;
 
-    // Laravel channels.php: Channel::private('project.{id}') -> Echo.private('project.6')
     const channel = echo.private(`project.${projectId}`);
 
     type Payload = { message?: Message };
@@ -106,7 +98,6 @@ export function useMessages(projectId: string | null | undefined) {
       const msg = evt?.message;
       if (!msg || typeof msg.id !== 'number') return;
 
-      // Функциональный апдейтер — без «устаревшего» стейта
       mutate((prev) => {
         const list = prev ?? [];
         if (list.some((m) => m.id === msg.id)) return list;
@@ -118,7 +109,6 @@ export function useMessages(projectId: string | null | undefined) {
 
     return () => {
       channel.stopListening('.message.created', handler);
-      // Echo сам удалит private-префикс
       echo.leave(`private-project.${projectId}`);
       echo.leave(`project.${projectId}`);
     };
@@ -127,7 +117,6 @@ export function useMessages(projectId: string | null | undefined) {
   return { messages: data ?? [], send, mutate };
 }
 
-/** Обновление прогресса проекта */
 export async function updateProgress(
   projectId: number,
   progress: number,
