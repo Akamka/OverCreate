@@ -1,4 +1,4 @@
-// frontend/src/lib/api.ts
+// src/lib/api.ts
 
 export type Paginated<T> = {
   data: T[];
@@ -105,14 +105,14 @@ export async function apiSend<T>(
   extraHeaders?: Record<string, string>
 ): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
-     method,
-     headers: {
-       Accept: 'application/json',
-       'Content-Type': 'application/json',
-       ...authHeader(),
-       ...(extraHeaders ?? {}),
-     },
-     body: body != null ? JSON.stringify(body) : undefined,
+    method,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...authHeader(),
+      ...(extraHeaders ?? {}),
+    },
+    body: body != null ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);
 }
@@ -152,9 +152,29 @@ export async function fetchPortfolioByService(
   url.searchParams.set('page', String(page));
   url.searchParams.set('per_page', String(perPage));
 
-  const res = await fetch(url.toString(), { next: { revalidate } });
-  if (!res.ok) throw new Error('Failed to load portfolio');
-  return (await res.json()) as Paginated<Portfolio>;
+  try {
+    const res = await fetch(url.toString(), { next: { revalidate } });
+    if (!res.ok) {
+      console.warn('[portfolio] fetch failed', res.status, url.toString());
+      return {
+        data: [],
+        current_page: 1,
+        last_page: 1,
+        per_page: perPage,
+        total: 0,
+      } as Paginated<Portfolio>;
+    }
+    return (await res.json()) as Paginated<Portfolio>;
+  } catch (e) {
+    console.warn('[portfolio] fetch error', (e as Error).message);
+    return {
+      data: [],
+      current_page: 1,
+      last_page: 1,
+      per_page: perPage,
+      total: 0,
+    } as Paginated<Portfolio>;
+  }
 }
 
 import type { Portfolio as PortfolioItem } from '@/types/portfolio';
