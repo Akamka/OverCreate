@@ -5,6 +5,7 @@ import { useRef, useState, useEffect, FormEvent, useCallback, useMemo } from 're
 import Image from 'next/image';
 import { Howl } from 'howler';
 import type { Message, Attachment } from '@/types/message';
+import { safeImageSrc } from '@/lib/images';
 
 /* ---------- theme helpers (match dashboard accents if present) ---------- */
 const ACC1 = 'var(--acc1, 59 130 246)';  // blue-500
@@ -149,7 +150,7 @@ export default function ProjectChat({
     const el = scrollerRef.current;
     if (!el) return;
     const atTop = el.scrollTop <= 0;
-    const atEnd = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+    const atEnd = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight; // ✅ fixed
     if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atEnd)) {
       e.preventDefault();
       el.scrollTop += e.deltaY;
@@ -391,63 +392,61 @@ export default function ProjectChat({
       )}
 
       {/* composer */}
-<form className="p-3 border-t border-white/10 bg-[#0c0e13]/80 backdrop-blur" onSubmit={submit}>
-  {files.length > 0 && (
-    <div className="mb-2 flex flex-wrap gap-2 text-xs text-white/80">
-      {files.map((f, i) => (
-        <span key={i} className="px-2 py-1 rounded-full bg-white/10 border border-white/12">
-          {f.name}
-        </span>
-      ))}
-      <button
-        type="button"
-        className="underline ml-auto hover:text-white"
-        onClick={() => {
-          setFiles([]);
-          if (fileInput.current) fileInput.current.value = '';
-        }}
-      >
-        clear files
-      </button>
-    </div>
-  )}
+      <form className="p-3 border-t border-white/10 bg-[#0c0e13]/80 backdrop-blur" onSubmit={submit}>
+        {files.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2 text-xs text-white/80">
+            {files.map((f, i) => (
+              <span key={i} className="px-2 py-1 rounded-full bg-white/10 border border-white/12">
+                {f.name}
+              </span>
+            ))}
+            <button
+              type="button"
+              className="underline ml-auto hover:text-white"
+              onClick={() => {
+                setFiles([]);
+                if (fileInput.current) fileInput.current.value = '';
+              }}
+            >
+              clear files
+            </button>
+          </div>
+        )}
 
-  <div className="flex gap-2 items-start">
-    <input
-      className="flex-1 border border-white/12 rounded-xl px-3 py-2 bg-white/5 focus:bg-white/10 outline-none focus:ring-2 text-white shadow-inner transition-colors"
-      value={text}
-      onChange={(e) => setText(e.target.value)}
-      placeholder="Write a message…"
-      aria-label="Message"
-    />
+        <div className="flex gap-2 items-start">
+          <input
+            className="flex-1 border border-white/12 rounded-xl px-3 py-2 bg-white/5 focus:bg-white/10 outline-none focus:ring-2 text-white shadow-inner transition-colors"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Write a message…"
+            aria-label="Message"
+          />
 
-    {/* скрытый input ОТДЕЛЬНО, без label-обёртки */}
-    <input
-      id="chat-attachments"
-      ref={fileInput}
-      type="file"
-      multiple
-      accept="image/*,video/*,audio/*,application/pdf,.zip,.rar,.7z,text/plain"
-      onChange={onPickFiles}
-      className="hidden"
-      aria-label="Attach files"
-    />
+          {/* скрытый input */}
+          <input
+            id="chat-attachments"
+            ref={fileInput}
+            type="file"
+            multiple
+            accept="image/*,video/*,audio/*,application/pdf,.zip,.rar,.7z,text/plain"
+            onChange={onPickFiles}
+            className="hidden"
+            aria-label="Attach files"
+          />
 
-    {/* обычная кнопка, которая триггерит .click() у input */}
-    <GhostButton
-      type="button"
-      onClick={() => fileInput.current?.click()}
-      aria-label="Attach files"
-    >
-      Attach
-    </GhostButton>
+          <GhostButton
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            aria-label="Attach files"
+          >
+            Attach
+          </GhostButton>
 
-    <PrimaryButton type="submit" aria-label="Send message">
-      Send
-    </PrimaryButton>
-  </div>
-</form>
-
+          <PrimaryButton type="submit" aria-label="Send message">
+            Send
+          </PrimaryButton>
+        </div>
+      </form>
 
       {/* lightbox */}
       {preview && (
@@ -497,7 +496,7 @@ function AttachmentView({
         aria-label="Open image"
       >
         <Image
-          src={a.url}
+          src={safeImageSrc(a.url)}
           alt={a.original_name ?? ''}
           width={w}
           height={h}
@@ -517,7 +516,7 @@ function AttachmentView({
       <div className={mine ? 'justify-self-end w-full' : 'w-full'}>
         <audio
           controls
-          src={a.url}
+          src={safeImageSrc(a.url)}
           className="w-full rounded-lg bg-white/5 backdrop-blur border border-white/10"
         />
       </div>
@@ -532,14 +531,14 @@ function AttachmentView({
           mine ? 'justify-self-end' : '',
         ].join(' ')}
       >
-        <video controls src={a.url} className="w-full max-h-56 bg-black" />
+        <video controls src={safeImageSrc(a.url)} className="w-full max-h-56 bg-black" />
       </div>
     );
   }
 
   return (
     <a
-      href={a.url}
+      href={safeImageSrc(a.url)}
       target="_blank"
       rel="noopener noreferrer"
       className={[
@@ -610,7 +609,7 @@ function Lightbox({
       >
         <div className="relative w-[96vw] max-w-[1600px] h-[80vh]">
           <Image
-            src={cur.url}
+            src={safeImageSrc(cur.url)}
             alt={cur.original_name ?? ''}
             fill
             sizes="100vw"
