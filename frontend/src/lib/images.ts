@@ -1,18 +1,19 @@
 // src/lib/images.ts
-// Safe src normalizer for <Image /> + вложения (audio/video/a)
+// Safe src normalizer for <Image /> + вложения (audio/video/links)
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/+$/, '');
 
-/** приведение схемы к https для нашего API-домена */
+/** Принудительно переводим http→https для нашего API-домена */
 function forceHttpsForOvercreate(u: URL) {
   if (u.hostname === 'api.overcreate.co' && u.protocol !== 'https:') {
     u.protocol = 'https:';
   }
 }
 
-/** убираем лишний /api/ перед /storage/ */
+/** Убираем лишний префикс /api/ перед /storage/ или /uploads/ */
 function stripApiPrefixPath(path: string) {
   // /api/storage/... -> /storage/...
+  // /api/uploads/... -> /uploads/...
   return path.replace(/^\/api\/(storage\/|uploads\/)/i, '/$1');
 }
 
@@ -22,7 +23,7 @@ export function safeImageSrc(
 ): string {
   if (!src || typeof src !== 'string') return fallback;
 
-  // trim + convert backslashes
+  // trim + normalize slashes
   let s = src.trim().replace(/\\/g, '/');
 
   // data/blob: пропускаем как есть
@@ -32,16 +33,13 @@ export function safeImageSrc(
   if (/^https?:\/\//i.test(s)) {
     try {
       const u = new URL(s);
-
-      // если путь начинается с /api/storage -> режем /api
+      // режем лишний /api/ в пути
       u.pathname = stripApiPrefixPath(u.pathname);
-
-      // https для нашего домена
+      // https для api.overcreate.co
       forceHttpsForOvercreate(u);
-
       return u.toString();
     } catch {
-      // если что-то не так с URL — свалимся ниже
+      // если парсинг не удался — попробуем как относительный ниже
     }
   }
 
@@ -51,12 +49,11 @@ export function safeImageSrc(
     return s;
   }
 
-  // относительный путь от API (storage/..., /storage/..., api/storage/...)
-  s = s.replace(/^api\//i, ''); // api/storage/... -> storage/...
-  s = stripApiPrefixPath('/' + s); // гарантируем ведущий слеш и режем /api/ если был
-  if (API_BASE) {
-    return `${API_BASE}${s}`;
-  }
+  // относительный путь от API (например: "storage/...", "/storage/...", "api/storage/...")
+  s = s.replace(/^api\//i, '');        // "api/storage/..." -> "storage/..."
+  s = stripApiPrefixPath('/' + s);     // гарантируем ведущий слеш и режем "/api/" если есть
+
+  if (API_BASE) return `${API_BASE}${s}`;
 
   return fallback;
 }

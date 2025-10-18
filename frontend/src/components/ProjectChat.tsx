@@ -146,18 +146,6 @@ export default function ProjectChat({
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  const onWheelCapture = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const atTop = el.scrollTop <= 0;
-    const atEnd = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight; // ✅ fixed
-    if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atEnd)) {
-      e.preventDefault();
-      el.scrollTop += e.deltaY;
-    }
-    e.stopPropagation();
-  }, []);
-
   useEffect(() => {
     if (messages.length) {
       try {
@@ -246,7 +234,6 @@ export default function ProjectChat({
       {/* scroll area */}
       <div
         ref={scrollerRef}
-        onWheelCapture={onWheelCapture}
         onWheel={(e) => e.stopPropagation()}
         className="h-[520px] md:h-[620px] overflow-y-auto px-3 py-4"
         style={{
@@ -257,6 +244,7 @@ export default function ProjectChat({
           ].join(', '),
           backgroundAttachment: 'local, local, local',
           backgroundSize: 'cover, cover, 160px 160px',
+          overscrollBehavior: 'contain', // блокируем проскальзывание страницы
         }}
       >
         <div ref={topSentinelRef} />
@@ -503,6 +491,9 @@ function AttachmentView({
           sizes="(max-width: 640px) 100vw, 50vw"
           className="w-full h-auto max-h-60 object-cover rounded-xl transition group-hover:brightness-95 select-none"
           draggable={false}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
+          }}
         />
         <span className="absolute right-2 bottom-2 px-2 py-0.5 text-[10px] rounded bg-black/60 text-white">
           Open
@@ -518,6 +509,9 @@ function AttachmentView({
           controls
           src={safeImageSrc(a.url)}
           className="w-full rounded-lg bg-white/5 backdrop-blur border border-white/10"
+          onError={(e) => {
+            (e.currentTarget as HTMLAudioElement).style.display = 'none';
+          }}
         />
       </div>
     );
@@ -531,7 +525,14 @@ function AttachmentView({
           mine ? 'justify-self-end' : '',
         ].join(' ')}
       >
-        <video controls src={safeImageSrc(a.url)} className="w-full max-h-56 bg-black" />
+        <video
+          controls
+          src={safeImageSrc(a.url)}
+          className="w-full max-h-56 bg-black"
+          onError={(e) => {
+            (e.currentTarget as HTMLVideoElement).style.display = 'none';
+          }}
+        />
       </div>
     );
   }
@@ -547,6 +548,10 @@ function AttachmentView({
       ].join(' ')}
       title={a.original_name ?? 'File'}
       aria-label="Open file"
+      onClick={(e) => {
+        const u = safeImageSrc(a.url);
+        if (!u || u === '/placeholder.svg') e.preventDefault();
+      }}
     >
       {a.original_name ?? 'File'}
     </a>
@@ -616,6 +621,9 @@ function Lightbox({
             className="object-contain select-none"
             priority={false}
             draggable={false}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
+            }}
           />
         </div>
       </div>
