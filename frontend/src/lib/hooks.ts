@@ -152,7 +152,11 @@ export function useMessages(
 
     if (!files || files.length === 0) {
       const msg = await postJSON<Message>(`/projects/${projectId}/messages`, { body }, hdr);
-      await mutate((prev) => ([...(prev ?? []), msg]), { revalidate: false });
+      // ✅ Добавляем без дублей: если событие из сокета пришло раньше, по id не дублируем
+      await mutate((prev) => {
+        const list = prev ?? [];
+        return list.some((m) => m.id === msg.id) ? list : [...list, msg];
+      }, { revalidate: false });
       return;
     }
 
@@ -161,7 +165,11 @@ export function useMessages(
     files.forEach((f) => form.append('files[]', f));
 
     const msg = await postForm<Message>(`/projects/${projectId}/messages`, form, hdr);
-    await mutate((prev) => ([...(prev ?? []), msg]), { revalidate: false });
+    // ✅ Та же защита от дублей при отправке с файлами
+    await mutate((prev) => {
+      const list = prev ?? [];
+      return list.some((m) => m.id === msg.id) ? list : [...list, msg];
+    }, { revalidate: false });
   }
 
   /* ---------------- realtime-подписка ---------------- */
@@ -184,7 +192,6 @@ export function useMessages(
       if (meId != null && sid != null && sid === String(meId)) {
         return; // моё же сообщение — пропускаем
       }
-
 
       mutate((prev) => {
         const list = prev ?? [];
