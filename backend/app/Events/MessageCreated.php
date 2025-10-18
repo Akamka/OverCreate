@@ -1,8 +1,9 @@
 <?php
+
 namespace App\Events;
 
 use App\Models\Message;
-use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;            // ← вот это
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
@@ -14,11 +15,17 @@ class MessageCreated implements ShouldBroadcastNow
         $this->message->load(['sender:id,name', 'attachments']);
     }
 
-    public function broadcastOn(): Channel {
-        return new Channel('project.'.$this->message->project_id);
+    // БЫЛО: Channel → public
+    // СТАЛО: PrivateChannel → private
+    public function broadcastOn(): PrivateChannel
+    {
+        return new PrivateChannel('project.'.$this->message->project_id);
     }
 
-    public function broadcastAs(): string { return 'message.created'; }
+    public function broadcastAs(): string
+    {
+        return 'message.created';
+    }
 
     public function broadcastWith(): array
     {
@@ -33,15 +40,9 @@ class MessageCreated implements ShouldBroadcastNow
                 'body'       => $this->message->body,
                 'created_at' => $this->message->created_at?->toISOString(),
                 'attachments'=> $this->message->attachments->map(fn($a)=>[
-                    'id' => $a->id,
-                    'url'=> $a->url,
-                    'mime'=>$a->mime,
-                    'size'=>$a->size,
-                    'original_name'=>$a->original_name,
-                    'type'=>$a->type,
-                    'width'=>$a->width,
-                    'height'=>$a->height,
-                    'duration'=>$a->duration,
+                    'id'=>$a->id,'url'=>$a->url,'mime'=>$a->mime,'size'=>$a->size,
+                    'original_name'=>$a->original_name,'type'=>$a->type,
+                    'width'=>$a->width,'height'=>$a->height,'duration'=>$a->duration,
                 ])->all(),
             ],
         ];
