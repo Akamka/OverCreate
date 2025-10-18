@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, FormEvent, useCallback, useMemo } from 're
 import Image from 'next/image';
 import { Howl } from 'howler';
 import type { Message, Attachment } from '@/types/message';
-import { safeImageSrc } from '@/lib/images';
+import { safeImageSrc, isExternalUrl } from '@/lib/images';
 
 /* ---------- theme helpers ---------- */
 const ACC1 = 'var(--acc1, 59 130 246)';
@@ -110,7 +110,7 @@ function GhostButton(
   );
 }
 
-/* ---------- SmartImage: переключает src на плейсхолдер при ошибке ---------- */
+/* ---------- SmartImage: нормализует URL + отключает оптимизатор для внешних ---------- */
 function SmartImage({
   src,
   fallback = '/placeholder.svg',
@@ -120,10 +120,13 @@ function SmartImage({
   useEffect(() => {
     setRealSrc(safeImageSrc(src, fallback));
   }, [src, fallback]);
+
+  const external = isExternalUrl(realSrc);
   return (
     <Image
       {...rest}
       src={realSrc}
+      unoptimized={external}            // внешние URL — без /_next/image
       onError={() => setRealSrc(fallback)}
     />
   );
@@ -172,8 +175,7 @@ export default function ProjectChat({
       } catch {}
     }
     if (atBottom) scrollToBottom();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, atBottom, scrollToBottom]);
 
   useEffect(() => {
     scrollToBottom(false);
@@ -429,7 +431,7 @@ export default function ProjectChat({
             aria-label="Message"
           />
 
-          {/* скрытый input */}
+          {/* hidden input */}
           <input
             id="chat-attachments"
             ref={fileInput}
@@ -604,7 +606,7 @@ function Lightbox({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex flex кол"
+      className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex flex-col"
       onClick={onClose}
     >
       <div className="flex items-center gap-2 p-3 text-white/90">

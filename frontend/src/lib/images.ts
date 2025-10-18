@@ -1,5 +1,5 @@
 // src/lib/images.ts
-// Safe src normalizer for <Image /> + вложения (audio/video/links)
+// Нормализация ссылок для картинок/медиа
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/+$/, '');
 
@@ -15,6 +15,31 @@ function stripApiPrefixPath(path: string) {
   return path.replace(/^\/api\/(storage\/|uploads\/)/i, '/$1');
 }
 
+/** Если передали ссылку вида "/_next/image?url=..." — достаём исходный url */
+function unwrapNextImageUrl(s: string): string {
+  try {
+    // абсолютный
+    if (/^https?:\/\//i.test(s)) {
+      const u = new URL(s);
+      if (u.pathname.includes('/_next/image')) {
+        const inner = u.searchParams.get('url');
+        if (inner) return decodeURIComponent(inner);
+      }
+      return s;
+    }
+    // относительный
+    if (s.startsWith('/_next/image')) {
+      const idx = s.indexOf('?');
+      if (idx >= 0) {
+        const qs = new URLSearchParams(s.slice(idx + 1));
+        const inner = qs.get('url');
+        if (inner) return decodeURIComponent(inner);
+      }
+    }
+  } catch {}
+  return s;
+}
+
 export function safeImageSrc(
   src?: string | null,
   fallback: string = '/placeholder.svg'
@@ -23,6 +48,9 @@ export function safeImageSrc(
 
   // trim + normalize slashes
   let s = src.trim().replace(/\\/g, '/');
+
+  // Разворачиваем вложенный /_next/image
+  s = unwrapNextImageUrl(s);
 
   // data/blob: как есть
   if (/^(data:|blob:)/i.test(s)) return s;
@@ -52,4 +80,9 @@ export function safeImageSrc(
   if (API_BASE) return `${API_BASE}${s}`;
 
   return fallback;
+}
+
+/** Внешний ли URL (не /public) — для решения, пускать ли через оптимизатор Next */
+export function isExternalUrl(u: string): boolean {
+  return /^https?:\/\//i.test(u);
 }
