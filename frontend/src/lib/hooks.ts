@@ -1,9 +1,8 @@
-// src/lib/hooks.ts
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import useSWR from 'swr';
-import { apiGet, apiSend, apiSendForm, getToken } from './api';
+import { API_URL, apiGet, authHeader, getToken } from './api';
 import { getEcho } from './realtime';
 
 import type { User } from '@/types/user';
@@ -13,7 +12,8 @@ import type { Paginated } from './api';
 
 type HttpishError = Error & { status?: number };
 
-/** Текущий пользователь */
+/* ================= me ================= */
+
 export function useMe() {
   const token = getToken();
   const key = token ? ['/me', token] : null;
@@ -35,7 +35,8 @@ export function useMe() {
   };
 }
 
-/** Проекты пользователя */
+/* =============== projects list =============== */
+
 export function useProjects(enabled = true) {
   const token = getToken();
   const key = enabled && token ? ['/projects', token] : null;
@@ -49,7 +50,8 @@ export function useProjects(enabled = true) {
   return { projects: data?.data ?? [], error, isLoading };
 }
 
-/** Проект по id */
+/* =============== project by id =============== */
+
 export function useProject(id: number | undefined) {
   const token = getToken();
   const key =
@@ -63,9 +65,41 @@ export function useProject(id: number | undefined) {
 
   return { project: data ?? null, error, isLoading, mutate };
 }
+/** Достаём sender id без any и без ошибок линтера */
+function extractSenderId(
+  m: unknown
+): string | null {
+  // вариант: relation sender: { id }
+  const rel =
+    typeof m === 'object' && m !== null &&
+    'sender' in m &&
+    typeof (m as { sender?: unknown }).sender === 'object' &&
+    (m as { sender?: { id?: unknown } }).sender?.id;
 
-/** Сообщения + realtime (с защитой от двойной подписки) */
-export function useMessages(projectId: string | null | undefined) {
+  if (typeof rel === 'number' || typeof rel === 'string') {
+    return String(rel);
+  }
+
+  // вариант: плоское поле sender_id
+  const flat =
+    typeof m === 'object' && m !== null &&
+    'sender_id' in m &&
+    (m as { sender_id?: unknown }).sender_id;
+
+  if (typeof flat === 'number' || typeof flat === 'string') {
+    return String(flat);
+  }
+
+  return null;
+}
+
+
+/* =============== messages + realtime =============== */
+/** meId — id текущего пользователя, чтобы отфильтровать свои же события из сокета */
+export function useMessages(
+  projectId: string | null | undefined,
+  meId?: number
+) {
   const key = projectId ? `/projects/${projectId}/messages` : null;
 
   const { data, mutate } = useSWR<Message[]>(key, apiGet, {
@@ -73,14 +107,52 @@ export function useMessages(projectId: string | null | undefined) {
     shouldRetryOnError: false,
   });
 
-  // Отправка
+  /* -------- helpers с X-Socket-Id (убирает дубли у отправителя) -------- */
+  async function postJSON<T>(path: string, payload: unknown, extra?: Record<string, string>) {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...authHeader(),
+        ...(extra ?? {}),
+      },
+      body: JSON.stringify(payload ?? {}),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${txt}`.trim());
+    }
+    return (await res.json()) as T;
+  }
+
+  async function postForm<T>(path: string, form: FormData, extra?: Record<string, string>) {
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...authHeader(),
+        ...(extra ?? {}),
+      },
+      body: form,
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${txt}`.trim());
+    }
+    return (await res.json()) as T;
+  }
+
+  /* ---------------- отправка (optimistic + X-Socket-Id) ---------------- */
   async function send(body: string, files?: File[]) {
     if (!projectId) return;
 
+    const socketId = getEcho()?.socketId();               // ← берём id текущего соединения
+    const hdr = socketId ? { 'X-Socket-Id': socketId } : undefined;
+
     if (!files || files.length === 0) {
-      const msg = await apiSend<Message>(`/projects/${projectId}/messages`, 'POST', { body });
-      // Мгновенно добавляем локально (а потом realtime просто проигнорирует дубликат по id)
-      await mutate(prev => ([...(prev ?? []), msg]), { revalidate: false });
+      const msg = await postJSON<Message>(`/projects/${projectId}/messages`, { body }, hdr);
+      await mutate((prev) => ([...(prev ?? []), msg]), { revalidate: false });
       return;
     }
 
@@ -88,81 +160,70 @@ export function useMessages(projectId: string | null | undefined) {
     if (body?.trim()) form.append('body', body.trim());
     files.forEach((f) => form.append('files[]', f));
 
-    const msg = await apiSendForm<Message>(`/projects/${projectId}/messages`, form, 'POST');
-    await mutate(prev => ([...(prev ?? []), msg]), { revalidate: false });
+    const msg = await postForm<Message>(`/projects/${projectId}/messages`, form, hdr);
+    await mutate((prev) => ([...(prev ?? []), msg]), { revalidate: false });
   }
 
-  // ---------- realtime-подписка (однократная для каждого projectId) ----------
-  const subscribedProjectRef = useRef<string | null>(null);
-  const handlerRef = useRef<((evt: { message?: Message }) => void) | null>(null);
-
+  /* ---------------- realtime-подписка ---------------- */
   useEffect(() => {
     if (!projectId) return;
-
     const echo = getEcho();
     if (!echo) return;
 
-    // если уже подписались на этот projectId — не дублируем
-    if (subscribedProjectRef.current === projectId) {
-      return;
-    }
+    const channel = echo.private(`project.${projectId}`);
 
-    const channelName = `project.${projectId}`;
-    const channel = echo.private(channelName);
+    type Payload = { message?: Message };
 
-    // На всякий пожарный: снимаем старый обработчик этого события (если был)
-    channel.stopListening('.message.created');
-
-    const handler = (evt: { message?: Message }) => {
+    const handler = (evt: Payload) => {
       const msg = evt?.message;
       if (!msg || typeof msg.id !== 'number') return;
 
-      // Защита от дублей: если такой id уже в списке — пропускаем
+      // ⚠️ страховка от дублей: если это моё же сообщение — пропускаем,
+      // потому что локально мы его уже добавили оптимистично.
+      const sid = extractSenderId(msg);
+      if (meId != null && sid != null && sid === String(meId)) {
+        return; // моё же сообщение — пропускаем
+      }
+
+
       mutate((prev) => {
         const list = prev ?? [];
-        if (list.some((m) => m.id === msg.id)) return list;
+        if (list.some((m) => m.id === msg.id)) return list; // защищаемся ещё и по id
         return [...list, msg];
       }, { revalidate: false });
     };
 
-    handlerRef.current = handler;
-
     channel.listen('.message.created', handler);
 
-    subscribedProjectRef.current = projectId;
-
     return () => {
-      // Отписываемся корректно
-      try {
-        if (handlerRef.current) {
-          channel.stopListening('.message.created', handlerRef.current);
-        } else {
-          channel.stopListening('.message.created');
-        }
-      } catch {}
-
-      try { echo.leave(`private-project.${projectId}`); } catch {}
-      try { echo.leave(`project.${projectId}`); } catch {}
-
-      if (subscribedProjectRef.current === projectId) {
-        subscribedProjectRef.current = null;
-      }
-      handlerRef.current = null;
+      channel.stopListening('.message.created', handler);
+      echo.leave(`private-project.${projectId}`);
+      echo.leave(`project.${projectId}`);
     };
-  }, [projectId, mutate]); // mutate стабилен в SWR, зависимости ок
+  }, [projectId, meId, mutate]);
 
   return { messages: data ?? [], send, mutate };
 }
 
-/** Обновление прогресса проекта */
+/* =============== progress update =============== */
+
 export async function updateProgress(
   projectId: number,
   progress: number,
   status?: Project['status']
 ) {
-  return apiSend<{ id: number; progress: number; status: Project['status'] }>(
-    `/projects/${projectId}/progress`,
-    'PATCH',
-    { progress, status }
-  );
+  const res = await fetch(`${API_URL}/projects/${projectId}/progress`, {
+    method: 'PATCH',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...authHeader(),
+    },
+    body: JSON.stringify({ progress, status }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${txt}`.trim());
+  }
+  return (await res.json()) as { id: number; progress: number; status: Project['status'] };
 }
