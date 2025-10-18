@@ -20,25 +20,21 @@ export type Portfolio = {
   created_at?: string;
 };
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8080';
+const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8080').replace(/\/+$/, '');
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || `${BASE}/api`) as string;
 
 /* ---------- токен ---------- */
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  // сначала sessionStorage (текущая вкладка), затем localStorage (все вкладки)
   return sessionStorage.getItem('token') || localStorage.getItem('token');
 }
 
 export function setToken(token: string, remember = true) {
   if (typeof window === 'undefined') return;
   sessionStorage.setItem('token', token);
-  if (remember) {
-    localStorage.setItem('token', token);
-  } else {
-    localStorage.removeItem('token');
-  }
+  if (remember) localStorage.setItem('token', token);
+  else localStorage.removeItem('token');
 }
 
 export function clearToken() {
@@ -63,40 +59,31 @@ export interface HttpError extends Error {
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const msg = `HTTP ${res.status}`;
-
     const contentType = res.headers.get('content-type') || '';
-    try {
-      if (contentType.includes('application/json')) {
-        const json = (await res.json()) as unknown;
-        const serverMsg =
-          typeof json === 'object' && json !== null && 'message' in (json as Record<string, unknown>)
-            ? String((json as Record<string, unknown>).message)
-            : undefined;
 
-        const err: HttpError = new Error(serverMsg || msg);
-        err.status = res.status;
-        err.data = json;
-        throw err;
-      } else {
-        const text = await res.text();
-        const err: HttpError = new Error(text || msg);
-        err.status = res.status;
-        throw err;
-      }
-    } catch (e) {
-      if (e instanceof Error) throw e as HttpError;
-      const err: HttpError = new Error(msg);
+    if (contentType.includes('application/json')) {
+      const json = (await res.json().catch(() => undefined)) as unknown;
+      const serverMsg =
+        json && typeof json === 'object' && 'message' in (json as Record<string, unknown>)
+          ? String((json as Record<string, unknown>).message)
+          : undefined;
+      const err: HttpError = new Error(serverMsg || msg);
       err.status = res.status;
+      err.data = json;
       throw err;
     }
+
+    const text = await res.text().catch(() => '');
+    const err: HttpError = new Error(text || msg);
+    err.status = res.status;
+    throw err;
   }
 
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('application/json')) {
     return (await res.json()) as T;
   }
-
-  // нет тела/не JSON
+  // пустое тело/не JSON
   return undefined as unknown as T;
 }
 
@@ -108,43 +95,48 @@ export async function apiGet<T>(path: string): Promise<T> {
   return handleResponse<T>(res);
 }
 
-export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
+/**
+ * JSON-запрос с возможностью передавать доп. заголовки (напр. X-Socket-Id).
+ */
+export async function apiSend<T>(
+  path: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+  body?: unknown,
+  extraHeaders?: Record<string, string>
+): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...authHeader(),
-    },
-    body: body ? JSON.stringify(body) : undefined,
+     method,
+     headers: {
+       Accept: 'application/json',
+       'Content-Type': 'application/json',
+       ...authHeader(),
+       ...(extraHeaders ?? {}),
+     },
+     body: body != null ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);
 }
 
-/** multipart/form-data с авторизацией */
+/**
+ * multipart/form-data с авторизацией и доп. заголовками (напр. X-Socket-Id).
+ */
 export async function apiSendForm<T>(
   path: string,
   form: FormData,
-  method: 'POST' | 'PUT' | 'PATCH' = 'POST'
+  method: 'POST' | 'PUT' | 'PATCH' = 'POST',
+  extraHeaders?: Record<string, string>
 ): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers: {
       Accept: 'application/json',
-      ...authHeader(),   // Bearer токен обязателен
+      ...authHeader(),
+      ...(extraHeaders ?? {}),
     },
     body: form,
   });
-  if (!res.ok) {
-    // полезнее увидеть код ошибки
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${text}`.trim());
-  }
-  return res.json();
+  return handleResponse<T>(res);
 }
-
-
-
 
 /* ---------- публичные запросы ---------- */
 
@@ -156,21 +148,16 @@ export async function fetchPortfolioByService(
 ) {
   const url = new URL(`${BASE}/api/portfolio`);
   url.searchParams.set('service_type', service);
-url.searchParams.set('published', '1');
+  url.searchParams.set('published', '1');
   url.searchParams.set('page', String(page));
   url.searchParams.set('per_page', String(perPage));
 
   const res = await fetch(url.toString(), { next: { revalidate } });
-  if (!res.ok) {
-    throw new Error('Failed to load portfolio');
-  }
+  if (!res.ok) throw new Error('Failed to load portfolio');
   return (await res.json()) as Paginated<Portfolio>;
 }
 
-
 import type { Portfolio as PortfolioItem } from '@/types/portfolio';
-
 export async function fetchPortfolioItem(id: number) {
   return apiGet<PortfolioItem>(`/portfolio/${id}`);
 }
-
