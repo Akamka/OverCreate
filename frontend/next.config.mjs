@@ -13,16 +13,21 @@ const nextConfig = {
   async rewrites() {
     if (isProd) return [];
     return [
-      { source: '/api/:path*',           destination: `${API_BASE}/api/:path*` },
-      { source: '/broadcasting/:path*',  destination: `${API_BASE}/broadcasting/:path*` },
+      { source: '/api/:path*',          destination: `${API_BASE}/api/:path*` },
+      { source: '/broadcasting/:path*', destination: `${API_BASE}/broadcasting/:path*` },
     ];
   },
 
   images: {
     remotePatterns: [
+      // прод: API на бою
       { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/storage/**' },
+      // ⚠️ добавляем http-вариант, иначе 400 от /_next/image
+      { protocol: 'http',  hostname: 'api.overcreate.co', pathname: '/storage/**' },
+
+      // локалка
       { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/storage/**' },
-      { protocol: 'http', hostname: 'localhost',  port: '8080', pathname: '/storage/**' },
+      { protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/storage/**' },
     ],
   },
 };
