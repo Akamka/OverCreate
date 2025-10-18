@@ -11,12 +11,12 @@ declare global {
   }
 }
 
-/* ---- минимальные типы под authorizer (без спорных импортов из pusher-js) ---- */
+/** минимальные типы под кастомный authorizer */
 type ChannelLike = { name: string };
 type ChannelAuthData = { auth: string; channel_data?: string };
 type AuthorizeCallback = (err: Error | null, data: ChannelAuthData | null) => void;
 
-/* Удобный тип — точный аргумент конструктора Echo для pusher-броадкастера */
+/** точный тип аргумента конструктора Echo для pusher-броадкастера */
 type EchoCtorArg = ConstructorParameters<typeof Echo<'pusher'>>[0];
 
 /** Ленивая инициализация Echo (Pusher/Soketi) */
@@ -29,18 +29,18 @@ export function getEcho(): Echo<'pusher'> | null {
 
   const isHttps = window.location.protocol === 'https:';
 
-  // Если используешь Pusher Cloud — подтяни из env
+  // Pusher Cloud / soketi
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY ?? 'local';
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1';
 
-  // Для soketi/своего сервера
+  // Где крутится soketi (или pusher-compatible шлюз)
   const wsHost = process.env.NEXT_PUBLIC_WS_HOST ?? window.location.hostname;
   const wsPort = Number(process.env.NEXT_PUBLIC_WS_PORT ?? (isHttps ? 443 : 6001));
 
-  // ВАЖНО: нужен МУТАБЕЛЬНЫЙ массив (а не readonly)
-  const enabledTransports: Array<'ws' | 'wss'> = isHttps ? ['wss'] : ['ws', 'wss'];
+  // ВАЖНО: абсолютный URL до бэкенда!
+  const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? '').replace(/\/+$/, '');
+  const authUrl = `${apiBase}/broadcasting/auth`;
 
-  /* ---- объект опций строго приведён к EchoCtorArg ---- */
   const opts: EchoCtorArg = {
     broadcaster: 'pusher',
     key,
@@ -50,16 +50,17 @@ export function getEcho(): Echo<'pusher'> | null {
     wssPort: wsPort,
     forceTLS: isHttps || key !== 'local',
     disableStats: true,
-    enabledTransports,
+    // тип у опции — простой массив строк, поэтому без readonly-литералов:
+    enabledTransports: isHttps ? (['wss'] as ('ws' | 'wss')[]) : (['ws', 'wss'] as ('ws' | 'wss')[]),
 
-    /** Кастомный authorizer: POST /broadcasting/auth + Bearer */
+    /** Кастомный authorizer — POST на БЭК с Bearer токеном */
     authorizer(channel: ChannelLike /*, _opts?: unknown */) {
       return {
         async authorize(socketId: string, callback: AuthorizeCallback) {
           try {
             const token = getToken();
 
-            const res = await fetch('/broadcasting/auth', {
+            const res = await fetch(authUrl, {
               method: 'POST',
               headers: {
                 Accept: 'application/json',
