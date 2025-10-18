@@ -7,10 +7,10 @@ import { Howl } from 'howler';
 import type { Message, Attachment } from '@/types/message';
 import { safeImageSrc } from '@/lib/images';
 
-/* ---------- theme helpers (match dashboard accents if present) ---------- */
-const ACC1 = 'var(--acc1, 59 130 246)';  // blue-500
-const ACC2 = 'var(--acc2, 168 85 247)';  // purple-500
-const ACC3 = 'var(--acc3, 45 212 191)';  // teal-400
+/* ---------- theme helpers ---------- */
+const ACC1 = 'var(--acc1, 59 130 246)';
+const ACC2 = 'var(--acc2, 168 85 247)';
+const ACC3 = 'var(--acc3, 45 212 191)';
 
 /* ---------- Subtle noise bg ---------- */
 const NOISE_BG =
@@ -60,7 +60,7 @@ function groupByDate(msgs: Message[]): { day: string; items: Message[] }[] {
   return Array.from(map.entries()).map(([day, items]) => ({ day, items }));
 }
 
-/* ---------- Pretty atoms ---------- */
+/* ---------- UI atoms ---------- */
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
@@ -106,6 +106,25 @@ function GhostButton(
         'motion-safe:transition-all motion-safe:duration-200 hover:-translate-y-[2px] active:translate-y-0',
         className,
       ].join(' ')}
+    />
+  );
+}
+
+/* ---------- SmartImage: переключает src на плейсхолдер при ошибке ---------- */
+function SmartImage({
+  src,
+  fallback = '/placeholder.svg',
+  ...rest
+}: Omit<React.ComponentProps<typeof Image>, 'src'> & { src: string; fallback?: string }) {
+  const [realSrc, setRealSrc] = useState<string>(() => safeImageSrc(src, fallback));
+  useEffect(() => {
+    setRealSrc(safeImageSrc(src, fallback));
+  }, [src, fallback]);
+  return (
+    <Image
+      {...rest}
+      src={realSrc}
+      onError={() => setRealSrc(fallback)}
     />
   );
 }
@@ -244,7 +263,7 @@ export default function ProjectChat({
           ].join(', '),
           backgroundAttachment: 'local, local, local',
           backgroundSize: 'cover, cover, 160px 160px',
-          overscrollBehavior: 'contain', // блокируем проскальзывание страницы
+          overscrollBehavior: 'contain',
         }}
       >
         <div ref={topSentinelRef} />
@@ -483,17 +502,14 @@ function AttachmentView({
         title={a.original_name ?? 'Open'}
         aria-label="Open image"
       >
-        <Image
-          src={safeImageSrc(a.url)}
+        <SmartImage
+          src={a.url}
           alt={a.original_name ?? ''}
           width={w}
           height={h}
           sizes="(max-width: 640px) 100vw, 50vw"
           className="w-full h-auto max-h-60 object-cover rounded-xl transition group-hover:brightness-95 select-none"
           draggable={false}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
-          }}
         />
         <span className="absolute right-2 bottom-2 px-2 py-0.5 text-[10px] rounded bg-black/60 text-white">
           Open
@@ -588,7 +604,7 @@ function Lightbox({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex flex-col"
+      className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex flex кол"
       onClick={onClose}
     >
       <div className="flex items-center gap-2 p-3 text-white/90">
@@ -613,17 +629,14 @@ function Lightbox({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative w-[96vw] max-w-[1600px] h-[80vh]">
-          <Image
-            src={safeImageSrc(cur.url)}
+          <SmartImage
+            src={cur.url}
             alt={cur.original_name ?? ''}
             fill
             sizes="100vw"
             className="object-contain select-none"
             priority={false}
             draggable={false}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
-            }}
           />
         </div>
       </div>

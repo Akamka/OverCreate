@@ -12,8 +12,6 @@ function forceHttpsForOvercreate(u: URL) {
 
 /** Убираем лишний префикс /api/ перед /storage/ или /uploads/ */
 function stripApiPrefixPath(path: string) {
-  // /api/storage/... -> /storage/...
-  // /api/uploads/... -> /uploads/...
   return path.replace(/^\/api\/(storage\/|uploads\/)/i, '/$1');
 }
 
@@ -26,20 +24,18 @@ export function safeImageSrc(
   // trim + normalize slashes
   let s = src.trim().replace(/\\/g, '/');
 
-  // data/blob: пропускаем как есть
+  // data/blob: как есть
   if (/^(data:|blob:)/i.test(s)) return s;
 
   // абсолютный URL?
   if (/^https?:\/\//i.test(s)) {
     try {
       const u = new URL(s);
-      // режем лишний /api/ в пути
       u.pathname = stripApiPrefixPath(u.pathname);
-      // https для api.overcreate.co
       forceHttpsForOvercreate(u);
       return u.toString();
     } catch {
-      // если парсинг не удался — попробуем как относительный ниже
+      // если парсинг не удался — ниже обработаем как относительный
     }
   }
 
@@ -49,9 +45,9 @@ export function safeImageSrc(
     return s;
   }
 
-  // относительный путь от API (например: "storage/...", "/storage/...", "api/storage/...")
+  // относительный путь от API
   s = s.replace(/^api\//i, '');        // "api/storage/..." -> "storage/..."
-  s = stripApiPrefixPath('/' + s);     // гарантируем ведущий слеш и режем "/api/" если есть
+  s = stripApiPrefixPath('/' + s);     // добавим слеш + уберём "/api/" если есть
 
   if (API_BASE) return `${API_BASE}${s}`;
 
