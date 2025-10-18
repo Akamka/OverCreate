@@ -59,7 +59,7 @@ class MessageController extends Controller
 
         // Сохраняем вложения (если есть)
         $files   = $request->file('files', []);
-        $disk    = config('filesystems.default', 'public'); // по умолчанию public
+        $disk    = (string) config('filesystems.default', 'public'); // по умолчанию public
         $baseDir = "chat/{$project->id}/" . date('Y/m');
 
         foreach ($files as $file) {
@@ -68,17 +68,21 @@ class MessageController extends Controller
 
             $path = $file->storePubliclyAs($baseDir, $name, $disk);
 
-            // ---------- Публичный URL ----------
-            // Для public-диска Storage::url вернёт /storage/...,
-            // для S3/HTTPS-дисков — полный https-URL.
             /** @var FilesystemAdapter $fs */
-            $fs     = Storage::disk($disk);
-            $rawUrl = $fs->url($path);
+            $fs = Storage::disk($disk);
+            $rawUrl = $fs->url($path); // может вернуть /storage/... или абсолютный URL
 
-            // Если драйвер вернул относительный путь (бывает с public),
-            // сделаем абсолютным к текущему APP_URL:
-            $url = preg_match('#^https?://#i', $rawUrl) ? $rawUrl : asset($rawUrl);
-            // -----------------------------------
+            // Абсолютный HTTPS-URL для Next.js <Image> (исключаем http://)
+            $appUrl = rtrim((string) config('app.url', env('APP_URL', '')), '/');
+            if (preg_match('#^https?://#i', $rawUrl)) {
+                $url = (string) $rawUrl;
+            } else {
+                $url = $appUrl !== '' ? $appUrl . $rawUrl : asset($rawUrl);
+            }
+            // насильно переводим на https (подстраховка от http)
+            if (str_starts_with($url, 'http://')) {
+                $url = 'https://' . substr($url, 7);
+            }
 
             $mime = $file->getClientMimeType() ?: $file->getMimeType();
             $size = (int) ($file->getSize() ?? 0);
