@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\Message;
-use Illuminate\Broadcasting\PrivateChannel;   // ← ВАЖНО
+use Illuminate\Broadcasting\PrivateChannel;           // <-- private
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
@@ -13,20 +13,23 @@ class MessageCreated implements ShouldBroadcastNow
 
     public function __construct(public Message $message)
     {
+        // грузим всё, что нужно показать на фронте
         $this->message->load(['sender:id,name', 'attachments']);
     }
 
-    // вещаем в private-канал project.{id}
+    /** Шлём именно в private-канал project.{id} */
     public function broadcastOn(): PrivateChannel
     {
-        return new PrivateChannel('project.' . $this->message->project_id);
+        return new PrivateChannel('project.'.$this->message->project_id);
     }
 
+    /** Короткое имя события */
     public function broadcastAs(): string
     {
         return 'message.created';
     }
 
+    /** Полезная нагрузка */
     public function broadcastWith(): array
     {
         $m = $this->message;
@@ -41,7 +44,7 @@ class MessageCreated implements ShouldBroadcastNow
                 ] : null,
                 'body'       => $m->body,
                 'created_at' => $m->created_at?->toISOString(),
-                'attachments'=> $m->attachments->map(fn($a) => [
+                'attachments'=> $m->attachments->map(fn ($a) => [
                     'id'            => $a->id,
                     'url'           => $a->url,
                     'mime'          => $a->mime,
