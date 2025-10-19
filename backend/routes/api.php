@@ -1,12 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log; // ← добавили логер
 
 // --- Публичные контроллеры ---
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Api\ContactSubmissionController;
-
 
 // --- ЛК/чат (Sanctum) ---
 use App\Http\Controllers\AuthController;
@@ -37,24 +37,23 @@ Route::get('/contact-submissions', [ContactSubmissionController::class, 'index']
 // портфолио
 Route::apiResource('portfolio', PortfolioController::class)->only(['index', 'show']);
 
-// заказы: создание публичное; чтение/отметка — в админке
+// заказы
 Route::post('/orders', [OrderController::class, 'store']);
 
 // регистрация / логин
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login',    [AuthController::class, 'login']);
 
-// ❗ Сброс пароля — ПУБЛИЧНЫЕ эндпоинты
+// сброс пароля — публично
 Route::post('/auth/forgot-password', [PasswordResetController::class, 'sendLink'])
     ->middleware('throttle:5,1');
 Route::post('/auth/reset-password',  [PasswordResetController::class, 'reset'])
     ->middleware('throttle:10,1');
 
-// ✅ ПУБЛИЧНЫЙ подтверждающий роут (по подписанной ссылке)
+// подтверждение по подписанной ссылке
 Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
     $user = User::findOrFail($id);
 
-    // проверяем hash так же, как делает Laravel
     if (! hash_equals(sha1($user->getEmailForVerification()), (string) $hash)) {
         return response()->json(['message' => 'Invalid verification link.'], 400);
     }
@@ -64,26 +63,42 @@ Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) 
         event(new Verified($user));
     }
 
-    // 👉 редиректим прямо в личный кабинет
     $front = rtrim(env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
-    return redirect($front . '/dashboard?verified=1'); // можно без ?verified=1, по желанию
+    return redirect($front . '/dashboard?verified=1');
 })->middleware('signed')->name('verification.verify');
 
 /*
 |--------------------------------------------------------------------------
 | AUTH (SANCTUM)
 |--------------------------------------------------------------------------
-| Здесь эндпоинты, доступные после входа, НО без требования verified,
-| чтобы пользователь мог получить профиль и повторно отправить письмо.
 */
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me',           [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-    // Отправить письмо подтверждения ещё раз
+    // повторная отправка письма верификации
     Route::post('/email/verification-notification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-        return response()->json(['ok' => true]);
+        try {
+            $user = $request->user();
+
+            if (! $user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+
+            if ($user->hasVerifiedEmail()) {
+                return response()->noContent(); // 204 — уже подтвержден
+            }
+
+            $user->sendEmailVerificationNotification();
+
+            return response()->json(['ok' => true]);
+        } catch (\Throwable $e) {
+            Log::error('Verify mail send failed', [
+                'user_id' => optional($request->user())->id,
+                'error'   => $e->getMessage(),
+            ]);
+            return response()->json(['message' => 'Failed to send verification email'], 500);
+        }
     })->middleware('throttle:6,1');
 });
 
@@ -91,8 +106,6 @@ Route::middleware('auth:sanctum')->group(function () {
 |--------------------------------------------------------------------------
 | AUTH + VERIFIED
 |--------------------------------------------------------------------------
-| Всё, что относится к личному кабинету, проектам и чату — только для
-| подтверждённых e-mail.
 */
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('/projects',                      [ProjectController::class, 'index']);
@@ -129,7 +142,7 @@ Route::prefix('admin')->middleware(\App\Http\Middleware\AdminToken::class)->grou
     Route::get('/orders',               [OrderController::class, 'index']);
     Route::put('/orders/{order}/read',  [OrderController::class, 'markRead']);
 
-        // Заявки: удаление, массовое удаление, смена статуса
+    // Заявки
     Route::delete('/contact-submissions/{contactSubmission}',
         [ContactSubmissionController::class, 'destroy']);
     Route::delete('/contact-submissions',
@@ -137,6 +150,6 @@ Route::prefix('admin')->middleware(\App\Http\Middleware\AdminToken::class)->grou
     Route::patch('/contact-submissions/{contactSubmission}',
         [ContactSubmissionController::class, 'update']);
 
-    // Если нужно — админ CRUD портфолио
+    // Портфолио (админ)
     Route::apiResource('portfolio', PortfolioController::class)->only(['store','update','destroy']);
 });
