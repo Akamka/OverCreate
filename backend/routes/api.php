@@ -1,7 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log; // логер
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 // --- Публичные контроллеры ---
 use App\Http\Controllers\PortfolioController;
@@ -51,25 +52,32 @@ Route::post('/auth/reset-password',  [PasswordResetController::class, 'reset'])
     ->middleware('throttle:10,1');
 
 /**
- * Подтверждение e-mail по подписанной ссылке.
- * ВАЖНО: используем 'signed:relative' — подпись проверяется по относительному URL,
- * игнорируя домен/схему (устойчиво за прокси и почтовыми трекерами).
- *
- * Если ваш почтовый провайдер добавляет параметры при клике, их можно игнорировать:
- * ->middleware('signed:relative,utm_source,utm_medium,utm_campaign,mj_tk,mj_ch')
+ * Подтверждение e-mail.
+ * УБРАЛИ middleware 'signed', а проверку подписи выполняем внутри.
+ * Если подпись невалидна из-за прокси/трекинга, но hash совпадает — принимаем ссылку.
  */
 Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
     try {
-        // фиксируем факт захода по ссылке (для диагностики)
         Log::info('Email verify link hit', [
-            'id'        => $id,
-            'hash_len'  => strlen((string) $hash),
-            'query'     => array_keys($request->query()),
+            'id'       => $id,
+            'hash_len' => strlen((string)$hash),
+            'query'    => array_keys($request->query()),
         ]);
 
         $user = User::findOrFail($id);
 
-        // дополнительная проверка хэша в точности как у Laravel
+        // 1) Пытаемся валидировать подпись (и относительную, и абсолютную)
+        $hasValidSignature =
+            URL::hasValidSignature($request, absolute: false) ||
+            URL::hasValidSignature($request, absolute: true);
+
+        if (! $hasValidSignature) {
+            Log::warning('Signed URL check failed (will fallback to hash)', [
+                'user_id' => $user->id,
+            ]);
+        }
+
+        // 2) Обязательная проверка hash — как делает Laravel
         $expected = sha1($user->getEmailForVerification());
         if (! hash_equals($expected, (string) $hash)) {
             Log::warning('Email verify hash mismatch', [
@@ -80,6 +88,7 @@ Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) 
             return response()->json(['message' => 'Invalid verification link.'], 400);
         }
 
+        // 3) Помечаем подтверждение
         if (! $user->hasVerifiedEmail()) {
             $user->markEmailAsVerified();
             event(new Verified($user));
@@ -90,13 +99,12 @@ Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) 
 
         $front = rtrim(env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
         return redirect($front . '/dashboard?verified=1');
+
     } catch (\Throwable $e) {
-        Log::error('Email verify handler failed', [
-            'error' => $e->getMessage(),
-        ]);
+        Log::error('Email verify handler failed', ['error' => $e->getMessage()]);
         return response()->json(['message' => 'Verification failed'], 500);
     }
-})->middleware('signed:relative')->name('verification.verify');
+})->name('verification.verify');
 
 /*
 |--------------------------------------------------------------------------
