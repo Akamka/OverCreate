@@ -14,8 +14,8 @@ const inter = Inter({ subsets: ['latin', 'cyrillic'], display: 'swap' });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: 'OverCreate — студия дизайна', template: '%s | OverCreate' },
-  description: 'Моушн, графика, веб-дизайн и разработка. Дизайн, который двигает бренд.',
+  title: { default: 'OverCreate — Design × Code Studio', template: '%s | OverCreate' },
+  description: 'Motion, graphics, web design and development.Design that moves your brand.',
   alternates: alternatesFor('/'),
   openGraph: { type: 'website', siteName: 'OverCreate', url: SITE_URL },
   twitter: { card: 'summary_large_image' },

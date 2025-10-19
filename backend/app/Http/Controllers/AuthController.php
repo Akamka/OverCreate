@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -13,60 +15,73 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'name'                  => ['required', 'string', 'max:255'],
-            'email'                 => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email'                 => ['required', 'string', 'email:rfc,dns', 'max:255', 'unique:users,email'],
             'password'              => ['required', 'confirmed', Password::min(6)],
+            'password_confirmation' => ['required'],
         ]);
 
         $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
             'password' => Hash::make($data['password']),
-            'role'     => 'client',
         ]);
 
-        // выдаём токен (чтобы пользователь мог попасть на /verify-email и нажимать "отправить ещё раз")
-        $token = $user->createToken('auth')->plainTextToken;
+        // Пытаемся отправить письмо с подтверждением, но НЕ роняем регистрацию,
+        // если SMTP/почта не настроены — просто логируем.
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            Log::warning('Email verification send failed: '.$e->getMessage());
+        }
 
-        // сразу отправляем письмо подтверждения
-        $user->sendEmailVerificationNotification();
+        $token = $user->createToken('web')->plainTextToken;
 
         return response()->json([
-            'token'       => $token,
-            'user'        => $user,
-            'mustVerify'  => is_null($user->email_verified_at),
+            'user'  => $user->only(['id','name','email','email_verified_at']),
+            'token' => $token,
         ], 201);
     }
 
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email'    => ['required', 'email'],
-            'password' => ['required', 'string'],
+        $data = $request->validate([
+            'email'    => ['required','string','email:rfc'],
+            'password' => ['required','string'],
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
+        /** @var \App\Models\User|null $user */
+        $user = User::where('email', $data['email'])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            return response()->json(['message' => 'Неверный логин или пароль'], 422);
+        if (! $user || ! Hash::check($data['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Invalid credentials.'],
+            ])->status(422);
         }
 
-        $token = $user->createToken('auth')->plainTextToken;
+        $token = $user->createToken('web')->plainTextToken;
 
         return response()->json([
+            'user'  => $user->only(['id','name','email','email_verified_at']),
             'token' => $token,
-            'user'  => $user,
-            'mustVerify' => is_null($user->email_verified_at),
         ]);
-    }
-
-    public function me(Request $request)
-    {
-        return $request->user();
     }
 
     public function logout(Request $request)
     {
         $request->user()?->currentAccessToken()?->delete();
         return response()->json(['ok' => true]);
+    }
+
+    public function me(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        return response()->json([
+            'id'                => $user->id,
+            'name'              => $user->name,
+            'email'             => $user->email,
+            'email_verified_at' => $user->email_verified_at,
+        ]);
     }
 }
