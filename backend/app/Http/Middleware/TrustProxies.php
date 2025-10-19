@@ -8,21 +8,22 @@ use Illuminate\Http\Request;
 class TrustProxies extends Middleware
 {
     /**
-     * Доверенные прокси. null — не доверяем; '*' — доверяем всем (если за CDN/Ingress).
+     * За Render/Cloudflare/Ingress — доверяем всем прокси,
+     * чтобы Laravel корректно читал X-Forwarded-* заголовки.
      *
      * @var array<int, string>|string|null
      */
-    protected $proxies = null;
+    protected $proxies = '*';
 
     /**
-     * Заголовки с информацией о прокси.
+     * Набор заголовков, из которых брать исходный хост/порт/схему.
      *
      * @var int
      */
     protected $headers =
-        Request::HEADER_X_FORWARDED_FOR |
-        Request::HEADER_X_FORWARDED_HOST |
-        Request::HEADER_X_FORWARDED_PORT |
-        Request::HEADER_X_FORWARDED_PROTO |
-        Request::HEADER_X_FORWARDED_AWS_ELB;
+          Request::HEADER_X_FORWARDED_FOR
+        | Request::HEADER_X_FORWARDED_HOST
+        | Request::HEADER_X_FORWARDED_PORT
+        | Request::HEADER_X_FORWARDED_PROTO
+        | Request::HEADER_X_FORWARDED_AWS_ELB;
 }

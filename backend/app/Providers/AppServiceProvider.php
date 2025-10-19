@@ -16,28 +16,31 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         /**
-         * Всегда выдаём HTTPS-ссылки в проде, чтобы Next.js <Image> не ломался,
-         * и чтобы не было mixed-content.
+         * Всегда используем правильный корневой URL из .env,
+         * чтобы подпись verify-ссылок не ломалась за обратным прокси.
          *
-         * В .env должен быть:
+         * В .env:
          *   APP_URL=https://api.overcreate.co
+         *   FRONTEND_ORIGIN=https://overcreate.co
          */
-        if (app()->environment('production')) {
-            URL::forceScheme('https');
-
-            // Подстраховка: убедимся, что app.url реально равен APP_URL
-            // (это влияет на asset(), Storage::url() для public и т. п.)
-            $appUrl = rtrim((string) env('APP_URL', ''), '/');
-            if ($appUrl !== '') {
-                config(['app.url' => $appUrl]);
-
-                // Для диска public Laravel формирует /storage/...,
-                // а абсолютный префикс берёт из app.url — подстрахуем вручную.
-                config(['filesystems.disks.public.url' => $appUrl.'/storage']);
-            }
+        $appUrl = rtrim((string) env('APP_URL', ''), '/');
+        if ($appUrl !== '') {
+            // Принудительно задаём корень для генерации ссылок (route(), URL::signedRoute() и т.п.)
+            URL::forceRootUrl($appUrl);
+            // На всякий случай синхронизируем config('app.url')
+            config(['app.url' => $appUrl]);
+            // И public disk url, чтобы Storage::url() выдавал абсолютные HTTPS-ссылки
+            config(['filesystems.disks.public.url' => $appUrl . '/storage']);
         }
 
-        // Ссылка на форму сброса пароля во фронте
+        // В проде насильно HTTPS (за прокси иначе Laravel видит http)
+        if (app()->environment('production')) {
+            URL::forceScheme('https');
+        }
+
+        /**
+         * Ссылка на фронтовую форму сброса пароля.
+         */
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             $front = rtrim((string) env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
             $email = urlencode($notifiable->getEmailForPasswordReset());
