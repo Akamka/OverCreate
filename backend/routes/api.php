@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log; // ← добавили логер
+use Illuminate\Support\Facades\Log; // ← логер
 
 // --- Публичные контроллеры ---
 use App\Http\Controllers\PortfolioController;
@@ -50,10 +50,18 @@ Route::post('/auth/forgot-password', [PasswordResetController::class, 'sendLink'
 Route::post('/auth/reset-password',  [PasswordResetController::class, 'reset'])
     ->middleware('throttle:10,1');
 
-// подтверждение по подписанной ссылке
+/**
+ * Подтверждение e-mail по подписанной ссылке.
+ * Главное изменение: 'signed:relative' — проверяет подпись по ОТНОСИТЕЛЬНОМУ URL,
+ * игнорируя домен/схему (актуально за прокси, на Render/Cloudflare и т.д.).
+ *
+ * Если почтовый сервис добавляет UTM/свои параметры при клике, можно дописать
+ * игнорируемые ключи: ->middleware('signed:relative,utm_source,utm_medium,utm_campaign,mj_tk,mj_ch')
+ */
 Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
     $user = User::findOrFail($id);
 
+    // проверяем hash так же, как делает Laravel
     if (! hash_equals(sha1($user->getEmailForVerification()), (string) $hash)) {
         return response()->json(['message' => 'Invalid verification link.'], 400);
     }
@@ -63,9 +71,10 @@ Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) 
         event(new Verified($user));
     }
 
+    // редиректим в личный кабинет фронта
     $front = rtrim(env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
     return redirect($front . '/dashboard?verified=1');
-})->middleware('signed')->name('verification.verify');
+})->middleware('signed:relative')->name('verification.verify');
 
 /*
 |--------------------------------------------------------------------------

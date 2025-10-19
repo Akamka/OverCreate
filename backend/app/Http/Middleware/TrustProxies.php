@@ -8,17 +8,12 @@ use Illuminate\Http\Request;
 class TrustProxies extends Middleware
 {
     /**
-     * За Render/Cloudflare/Ingress — доверяем всем прокси,
-     * чтобы Laravel корректно читал X-Forwarded-* заголовки.
-     *
-     * @var array<int, string>|string|null
+     * За Render/Cloudflare/Ingress доверяем всем прокси.
      */
     protected $proxies = '*';
 
     /**
-     * Набор заголовков, из которых брать исходный хост/порт/схему.
-     *
-     * @var int
+     * Заголовки, из которых брать исходные host/port/scheme.
      */
     protected $headers =
           Request::HEADER_X_FORWARDED_FOR

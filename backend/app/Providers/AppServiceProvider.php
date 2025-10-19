@@ -16,31 +16,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         /**
-         * Всегда используем правильный корневой URL из .env,
-         * чтобы подпись verify-ссылок не ломалась за обратным прокси.
-         *
-         * В .env:
-         *   APP_URL=https://api.overcreate.co
-         *   FRONTEND_ORIGIN=https://overcreate.co
+         * Фикс корневого URL и схемы за обратным прокси.
+         * (.env должен содержать APP_URL=https://api.overcreate.co)
          */
         $appUrl = rtrim((string) env('APP_URL', ''), '/');
         if ($appUrl !== '') {
-            // Принудительно задаём корень для генерации ссылок (route(), URL::signedRoute() и т.п.)
             URL::forceRootUrl($appUrl);
-            // На всякий случай синхронизируем config('app.url')
             config(['app.url' => $appUrl]);
-            // И public disk url, чтобы Storage::url() выдавал абсолютные HTTPS-ссылки
             config(['filesystems.disks.public.url' => $appUrl . '/storage']);
         }
 
-        // В проде насильно HTTPS (за прокси иначе Laravel видит http)
         if (app()->environment('production')) {
             URL::forceScheme('https');
         }
 
-        /**
-         * Ссылка на фронтовую форму сброса пароля.
-         */
+        // Ссылка на фронтовую форму сброса пароля
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             $front = rtrim((string) env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
             $email = urlencode($notifiable->getEmailForPasswordReset());
