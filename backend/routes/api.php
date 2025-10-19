@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log; // ← логер
+use Illuminate\Support\Facades\Log; // логер
 
 // --- Публичные контроллеры ---
 use App\Http\Controllers\PortfolioController;
@@ -52,28 +52,50 @@ Route::post('/auth/reset-password',  [PasswordResetController::class, 'reset'])
 
 /**
  * Подтверждение e-mail по подписанной ссылке.
- * Главное изменение: 'signed:relative' — проверяет подпись по ОТНОСИТЕЛЬНОМУ URL,
- * игнорируя домен/схему (актуально за прокси, на Render/Cloudflare и т.д.).
+ * ВАЖНО: используем 'signed:relative' — подпись проверяется по относительному URL,
+ * игнорируя домен/схему (устойчиво за прокси и почтовыми трекерами).
  *
- * Если почтовый сервис добавляет UTM/свои параметры при клике, можно дописать
- * игнорируемые ключи: ->middleware('signed:relative,utm_source,utm_medium,utm_campaign,mj_tk,mj_ch')
+ * Если ваш почтовый провайдер добавляет параметры при клике, их можно игнорировать:
+ * ->middleware('signed:relative,utm_source,utm_medium,utm_campaign,mj_tk,mj_ch')
  */
 Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-    $user = User::findOrFail($id);
+    try {
+        // фиксируем факт захода по ссылке (для диагностики)
+        Log::info('Email verify link hit', [
+            'id'        => $id,
+            'hash_len'  => strlen((string) $hash),
+            'query'     => array_keys($request->query()),
+        ]);
 
-    // проверяем hash так же, как делает Laravel
-    if (! hash_equals(sha1($user->getEmailForVerification()), (string) $hash)) {
-        return response()->json(['message' => 'Invalid verification link.'], 400);
+        $user = User::findOrFail($id);
+
+        // дополнительная проверка хэша в точности как у Laravel
+        $expected = sha1($user->getEmailForVerification());
+        if (! hash_equals($expected, (string) $hash)) {
+            Log::warning('Email verify hash mismatch', [
+                'user_id'  => $user->id,
+                'expected' => $expected,
+                'given'    => (string) $hash,
+            ]);
+            return response()->json(['message' => 'Invalid verification link.'], 400);
+        }
+
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+            event(new Verified($user));
+            Log::info('Email marked verified', ['user_id' => $user->id]);
+        } else {
+            Log::info('Email already verified', ['user_id' => $user->id]);
+        }
+
+        $front = rtrim(env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
+        return redirect($front . '/dashboard?verified=1');
+    } catch (\Throwable $e) {
+        Log::error('Email verify handler failed', [
+            'error' => $e->getMessage(),
+        ]);
+        return response()->json(['message' => 'Verification failed'], 500);
     }
-
-    if (! $user->hasVerifiedEmail()) {
-        $user->markEmailAsVerified();
-        event(new Verified($user));
-    }
-
-    // редиректим в личный кабинет фронта
-    $front = rtrim(env('FRONTEND_ORIGIN', 'http://localhost:3000'), '/');
-    return redirect($front . '/dashboard?verified=1');
 })->middleware('signed:relative')->name('verification.verify');
 
 /*
