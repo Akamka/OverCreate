@@ -15,11 +15,32 @@ class UserAdminController extends Controller
 
     public function updateRole(Request $request, User $user)
     {
-        $data = $request->validate([
-            'role' => ['required', 'in:client,staff,admin'],
-        ]);
+        // Берём role из тела (JSON/FORM); если пусто — пробуем query (?role=...)
+        $role = $request->input('role');
+        if ($role === null) {
+            $role = $request->query('role');
+        }
 
-        $user->update(['role' => $data['role']]);
+        // Валидация наличия
+        if ($role === null || $role === '') {
+            return response()->json([
+                'message' => 'The role field is required.',
+                'errors'  => ['role' => ['The role field is required.']],
+            ], 422);
+        }
+
+        // Нормализуем и проверяем допустимые значения
+        $role = strtolower(trim((string) $role));
+        $allowed = ['client', 'staff', 'admin'];
+        if (!in_array($role, $allowed, true)) {
+            return response()->json([
+                'message' => 'Invalid role value.',
+                'errors'  => ['role' => ['Allowed: client, staff, admin']],
+            ], 422);
+        }
+
+        // Сохраняем
+        $user->update(['role' => $role]);
 
         return response()->json(['ok' => true, 'user' => $user]);
     }
@@ -29,15 +50,14 @@ class UserAdminController extends Controller
         return User::where('role', 'staff')->get();
     }
 
-    // 🔥 Новый метод — удаление пользователя
+    // 🔥 Удаление пользователя
     public function destroy(User $user, Request $request)
     {
-        // запретим удалять себя
+        // Запретить удаление себя
         if ($request->user() && $request->user()->id === $user->id) {
             return response()->json(['message' => 'Нельзя удалить свой аккаунт'], 422);
         }
         $user->delete();
         return response()->json(['ok' => true]);
     }
-
 }
