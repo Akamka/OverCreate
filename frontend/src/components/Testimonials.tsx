@@ -32,7 +32,7 @@ const ALL: Testimonial[] = [
       'Design language, component system and code quality — everything aligned. Launch day was boring (the best kind).',
     author: 'Igor Petrov',
     role: 'Founder, Loop',
-    avatar: '/avatars/Avatar-1-girl.jpg',
+    avatar: '/avatars/Igor-Petrov.jpg',
   },
   {
     text:
