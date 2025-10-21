@@ -102,8 +102,10 @@ function EditModal(props: {
     initial?.is_published ?? true
   );
 
-  const [cover, setCover] = useState<File | null>(null);  // новая обложка
-  const [gallery, setGallery] = useState<File[]>([]);     // новые файлы
+  const [videoUrl, setVideoUrl] = useState<string>(initial?.video_url || ""); // <— NEW
+
+  const [cover, setCover] = useState<File | null>(null); // новая обложка
+  const [gallery, setGallery] = useState<File[]>([]); // новые файлы
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +117,7 @@ function EditModal(props: {
       setTags(initial?.tags || "");
       setSort(initial?.sort_order ?? 0);
       setPublished(initial?.is_published ?? true);
+      setVideoUrl(initial?.video_url || ""); // <— NEW
       setCover(null);
       setGallery([]);
       setError(null);
@@ -195,7 +198,14 @@ function EditModal(props: {
               ))}
             </select>
 
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+              }}
+            >
               <input
                 type="checkbox"
                 checked={published}
@@ -241,6 +251,27 @@ function EditModal(props: {
             }}
           />
 
+          {/* ----- Видео (YouTube) ----- */}
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontWeight: 600 }}>Видео (YouTube)</div>
+            <input
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="Вставь ссылку на YouTube (watch, youtu.be, shorts, embed)"
+              style={{
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+              }}
+            />
+            {!!videoUrl.trim() && (
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                При наличии видео галерея файлов будет отключена (обложку можно
+                задавать).
+              </div>
+            )}
+          </div>
+
           {/* ----- Обложка (только image/*) ----- */}
           <div style={{ display: "grid", gap: 8 }}>
             <div style={{ fontWeight: 600 }}>Обложка</div>
@@ -251,9 +282,17 @@ function EditModal(props: {
                 <img
                   src={initial.cover_url}
                   alt="cover"
-                  style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #e5e7eb" }}
+                  style={{
+                    width: 120,
+                    height: 90,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                  }}
                 />
-                <span style={{ fontSize: 12, color: "#64748b" }}>Текущая обложка</span>
+                <span style={{ fontSize: 12, color: "#64748b" }}>
+                  Текущая обложка
+                </span>
               </div>
             )}
 
@@ -270,16 +309,24 @@ function EditModal(props: {
               }
             >
               <div style={{ fontSize: 13, color: "#475569" }}>
-                Перетащи сюда <b>картинку</b> или нажми для выбора (video запрещено)
+                Перетащи сюда <b>картинку</b> или нажми для выбора (video
+                запрещено)
               </div>
             </FileDrop>
 
             {cover && (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 12, color: "#475569" }}>{cover.name}</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>
+                  {cover.name}
+                </div>
                 <button
                   onClick={() => setCover(null)}
-                  style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff" }}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                  }}
                 >
                   Убрать
                 </button>
@@ -287,25 +334,46 @@ function EditModal(props: {
             )}
           </div>
 
-          {/* ----- Галерея (image/*,video/*) — много файлов сразу ----- */}
-          <div style={{ display: "grid", gap: 8 }}>
+          {/* ----- Галерея ----- */}
+          <div style={{ display: "grid", gap: 8, opacity: videoUrl.trim() ? 0.6 : 1 }}>
             <div style={{ fontWeight: 600 }}>Галерея</div>
-            <FileDrop
-              multiple
-              accept="image/*,video/*"
-              onFiles={(files) => setGallery(files)}
-              onReject={(rej) =>
-                setError(
-                  `Галерея: неподдерживаемые типы — ${rej
-                    .map((f) => `${f.name} [${f.type || "unknown"}]`)
-                    .join(", ")}`
-                )
-              }
-            />
-            {!!gallery.length && (
-              <div style={{ fontSize: 12, color: "#475569" }}>
-                {gallery.length} файл(ов) выбрано
+
+            {videoUrl.trim() ? (
+              <div
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 16,
+                  borderRadius: 12,
+                  border: "1px dashed #cbd5e1",
+                  background: "#f8fafc",
+                  color: "#64748b",
+                  fontSize: 13,
+                }}
+              >
+                Галерея отключена — указана YouTube-ссылка. Уберите ссылку,
+                чтобы добавлять файлы.
               </div>
+            ) : (
+              <>
+                <FileDrop
+                  multiple
+                  accept="image/*,video/*"
+                  onFiles={(files) => setGallery(files)}
+                  onReject={(rej) =>
+                    setError(
+                      `Галерея: неподдерживаемые типы — ${rej
+                        .map((f) => `${f.name} [${f.type || "unknown"}]`)
+                        .join(", ")}`
+                    )
+                  }
+                />
+                {!!gallery.length && (
+                  <div style={{ fontSize: 12, color: "#475569" }}>
+                    {gallery.length} файл(ов) выбрано
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -341,8 +409,18 @@ function EditModal(props: {
                   tags: tags.trim() || undefined,
                   sort_order: sort,
                   is_published: published,
-                  cover,                               // заменит обложку, если задано
-                  gallery_files: gallery.length ? gallery : null, // добавит/перезапишет галерею
+
+                  video_url: videoUrl, // <— NEW: отправляем как есть ("" очистит видео)
+
+                  // обложка можно вместе с видео
+                  cover,
+
+                  // галерею шлём только если видео не указано
+                  gallery_files: videoUrl.trim()
+                    ? null
+                    : gallery.length
+                    ? gallery
+                    : null,
                 });
                 onClose();
               } catch (e) {
@@ -518,10 +596,20 @@ export default function PortfolioPage() {
           }}
         >
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <table
+              style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}
+            >
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  {["ID", "Заголовок", "Сервис", "Порядок", "Публ.", "Обложка", "Действия"].map((h) => (
+                  {[
+                    "ID",
+                    "Заголовок",
+                    "Сервис",
+                    "Порядок",
+                    "Публ.",
+                    "Обложка",
+                    "Действия",
+                  ].map((h) => (
                     <th
                       key={h}
                       style={{
@@ -537,17 +625,32 @@ export default function PortfolioPage() {
               </thead>
               <tbody>
                 {items.map((it) => (
-                  <tr key={it.id} style={{ borderTop: "1px solid #e5e7eb", verticalAlign: "top" }}>
+                  <tr
+                    key={it.id}
+                    style={{
+                      borderTop: "1px solid #e5e7eb",
+                      verticalAlign: "top",
+                    }}
+                  >
                     <td style={{ padding: 8 }}>{it.id}</td>
                     <td style={{ padding: 8, minWidth: 220 }}>
                       <div style={{ fontWeight: 600 }}>{it.title}</div>
                       {it.excerpt && (
-                        <div style={{ color: "#64748b", marginTop: 4 }}>{it.excerpt}</div>
+                        <div style={{ color: "#64748b", marginTop: 4 }}>
+                          {it.excerpt}
+                        </div>
+                      )}
+                      {it.video_url && (
+                        <div style={{ color: "#16a34a", fontSize: 12, marginTop: 4 }}>
+                          ▶ видео
+                        </div>
                       )}
                     </td>
                     <td style={{ padding: 8 }}>{it.service_type}</td>
                     <td style={{ padding: 8, minWidth: 100 }}>{it.sort_order}</td>
-                    <td style={{ padding: 8 }}>{it.is_published ? "✅" : "⛔"}</td>
+                    <td style={{ padding: 8 }}>
+                      {it.is_published ? "✅" : "⛔"}
+                    </td>
                     <td style={{ padding: 8 }}>
                       {it.cover_url ? (
                         <a href={it.cover_url} target="_blank" rel="noreferrer">
@@ -590,7 +693,11 @@ export default function PortfolioPage() {
                   <tr>
                     <td
                       colSpan={7}
-                      style={{ padding: 16, textAlign: "center", color: "#6b7280" }}
+                      style={{
+                        padding: 16,
+                        textAlign: "center",
+                        color: "#6b7280",
+                      }}
                     >
                       Нет работ
                     </td>
@@ -601,7 +708,9 @@ export default function PortfolioPage() {
           </div>
 
           {!!links?.length && (
-            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div
+              style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}
+            >
               {links.map((l, i) =>
                 l.url ? (
                   <button

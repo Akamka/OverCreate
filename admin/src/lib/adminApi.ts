@@ -119,10 +119,16 @@ export type PortfolioCreatePayload = {
   title: string;
   service_type: ServiceSlug | string;
   slug?: string;
+
+  // изображения/галерея
   cover?: File | null;
   gallery_files?: File[] | null;
   cover_url?: string | null;
   gallery?: string[] | null;
+
+  // видео (YouTube)
+  video_url?: string | null;
+
   client?: string | null;
   tags?: string | null;
   excerpt?: string | null;
@@ -146,7 +152,10 @@ export async function adminListPortfolio(params: {
   if (params.page) q.set("page", String(params.page));
   if (params.per_page) q.set("per_page", String(params.per_page));
   if (params.service_type) q.set("service_type", String(params.service_type));
-  if (typeof params.published === "boolean") q.set("published", params.published ? "1" : "0");
+  if (typeof params.published === "boolean")
+    q.set("published", params.published ? "1" : "0");
+
+  // список берём с публичного /api/portfolio (админ-роута для index нет)
   return adminFetch<Paginated<PortfolioItem>>(`/api/portfolio?${q.toString()}`);
 }
 
@@ -157,17 +166,34 @@ export async function adminCreatePortfolio(
   fd.set("title", payload.title);
   fd.set("service_type", String(payload.service_type));
   if (payload.slug) fd.set("slug", payload.slug);
+
+  // видео: если есть — шлём video_url и НЕ отправляем галерею
+  if (payload.video_url) {
+    fd.set("video_url", payload.video_url);
+  }
+
+  // обложку можно присылать всегда (и с видео тоже — для превью)
   if (payload.cover) fd.set("cover", payload.cover);
   if (payload.cover_url) fd.set("cover_url", payload.cover_url);
-  if (payload.gallery_files?.length) payload.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
-  if (payload.gallery?.length) payload.gallery.forEach((u) => fd.append("gallery[]", u));
+
+  // галерею отправляем только если нет видео
+  if (!payload.video_url) {
+    if (payload.gallery_files?.length)
+      payload.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
+    if (payload.gallery?.length)
+      payload.gallery.forEach((u) => fd.append("gallery[]", u));
+  }
+
   if (payload.client) fd.set("client", payload.client);
   if (payload.tags) fd.set("tags", payload.tags);
   if (payload.excerpt) fd.set("excerpt", payload.excerpt);
   if (payload.body) fd.set("body", payload.body);
-  if (typeof payload.is_published === "boolean") fd.set("is_published", payload.is_published ? "1" : "0");
-  if (typeof payload.is_featured === "boolean") fd.set("is_featured", payload.is_featured ? "1" : "0");
-  if (typeof payload.sort_order === "number") fd.set("sort_order", String(payload.sort_order));
+  if (typeof payload.is_published === "boolean")
+    fd.set("is_published", payload.is_published ? "1" : "0");
+  if (typeof payload.is_featured === "boolean")
+    fd.set("is_featured", payload.is_featured ? "1" : "0");
+  if (typeof payload.sort_order === "number")
+    fd.set("sort_order", String(payload.sort_order));
   if (payload.meta_title) fd.set("meta_title", payload.meta_title);
   if (payload.meta_description) fd.set("meta_description", payload.meta_description);
 
@@ -179,20 +205,41 @@ export async function adminUpdatePortfolio(
   patch: PortfolioUpdatePayload
 ): Promise<PortfolioItem> {
   const fd = new FormData();
+
   if (patch.title) fd.set("title", patch.title);
   if (patch.service_type) fd.set("service_type", String(patch.service_type));
   if (patch.slug) fd.set("slug", patch.slug);
+
+  // video_url: если ключ присутствует — изменяем/очищаем ("" = очистка)
+  if (typeof patch.video_url !== "undefined") {
+    fd.set("video_url", patch.video_url ?? "");
+  }
+
+  // обложку можно отправлять всегда
   if (patch.cover) fd.set("cover", patch.cover);
   if (patch.cover_url) fd.set("cover_url", patch.cover_url);
-  if (patch.gallery_files?.length) patch.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
-  if (patch.gallery?.length) patch.gallery.forEach((u) => fd.append("gallery[]", u));
+
+  // галерею отправляем только если video_url не присылается ИЛИ присылается как пустая строка
+  const willChangeVideo =
+    typeof patch.video_url !== "undefined" && !!(patch.video_url && patch.video_url.trim());
+
+  if (!willChangeVideo) {
+    if (patch.gallery_files?.length)
+      patch.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
+    if (patch.gallery?.length)
+      patch.gallery.forEach((u) => fd.append("gallery[]", u));
+  }
+
   if (patch.client) fd.set("client", patch.client);
   if (patch.tags) fd.set("tags", patch.tags);
   if (patch.excerpt) fd.set("excerpt", patch.excerpt);
   if (patch.body) fd.set("body", patch.body);
-  if (typeof patch.is_published === "boolean") fd.set("is_published", patch.is_published ? "1" : "0");
-  if (typeof patch.is_featured === "boolean") fd.set("is_featured", patch.is_featured ? "1" : "0");
-  if (typeof patch.sort_order === "number") fd.set("sort_order", String(patch.sort_order));
+  if (typeof patch.is_published === "boolean")
+    fd.set("is_published", patch.is_published ? "1" : "0");
+  if (typeof patch.is_featured === "boolean")
+    fd.set("is_featured", patch.is_featured ? "1" : "0");
+  if (typeof patch.sort_order === "number")
+    fd.set("sort_order", String(patch.sort_order));
   if (patch.meta_title) fd.set("meta_title", patch.meta_title);
   if (patch.meta_description) fd.set("meta_description", patch.meta_description);
 
@@ -204,7 +251,7 @@ export async function adminDeletePortfolio(id: number): Promise<void> {
   await adminFetch<void>(`/api/admin/portfolio/${id}`, { method: "DELETE" });
 }
 
-// ======== CONTACT SUBMISSIONS ========
+/* ======== CONTACT SUBMISSIONS ======== */
 
 // список (публичный роут, без /admin, поэтому токен не нужен)
 export async function listContactSubmissions(
@@ -215,7 +262,6 @@ export async function listContactSubmissions(
     const u = new URL(pageUrl);
     return adminFetch<Paginated<ContactSubmission>>(u.pathname + u.search);
   }
-  // ВНИМАНИЕ: тут именно публичный путь
   return adminFetch<Paginated<ContactSubmission>>(`/api/contact-submissions`);
 }
 
@@ -245,11 +291,10 @@ export async function adminBulkDeleteContacts(ids: number[]): Promise<void> {
   }
 }
 
-
 /* ================= USERS ================= */
 
 export async function adminListUsers(
-  _token: string, // для совместимости со старыми вызовами
+  _token: string,
   params: { q?: string; role?: User["role"]; page?: number; per_page?: number }
 ): Promise<Paginated<User>> {
   const q = new URLSearchParams();

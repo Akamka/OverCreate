@@ -20,13 +20,16 @@ class UpdatePortfolioRequest extends FormRequest
             'title'        => ['sometimes','required','string','max:255'],
             'slug'         => ['nullable','string','max:255','unique:portfolios,slug,'.$id],
             'service_type' => ['sometimes','required','string','in:'.implode(',', ServiceType::ALL)],
+
             'cover_url'    => ['nullable','url'],
             'gallery'      => ['nullable','array'],
             'gallery.*'    => ['nullable','url'],
 
-            'cover'                => ['nullable','file','mimetypes:image/jpeg,image/png,image/webp','max:102400'],
-            'gallery_files'        => ['nullable','array'],
-            'gallery_files.*'      => ['file','mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/webm','max:102400'],
+            'video_url'    => ['nullable','string', 'regex:/^$|^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i'], // ⬅️ пустая строка = очистка
+
+            'cover'           => ['nullable','file','mimetypes:image/jpeg,image/png,image/webp','max:102400'],
+            'gallery_files'   => ['nullable','array'],
+            'gallery_files.*' => ['file','mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-msvideo,video/webm','max:102400'],
 
             'client'       => ['nullable','string','max:255'],
             'tags'         => ['nullable','string','max:255'],

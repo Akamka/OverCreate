@@ -58,10 +58,12 @@ export type Project = {
 export type ServiceSlug = 'motion' | 'graphic' | 'web' | 'dev' | 'printing';
 
 export type PortfolioItem = {
+  
   id: number;
   title: string;
   slug: string;
   service_type: ServiceSlug | string;
+  video_url: string | null;
   cover_url?: string | null;
   gallery?: string[] | null;
   client?: string | null;

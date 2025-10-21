@@ -14,6 +14,7 @@ class Portfolio extends Model
         'title',
         'slug',
         'service_type',
+        'cover_url','gallery','video_url',
         'cover_url',
         'gallery',
         'client',
