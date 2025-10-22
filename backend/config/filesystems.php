@@ -41,6 +41,7 @@ return [
             'root'       => storage_path('app/public'),
             'url'        => rtrim(env('APP_URL', ''), '/') . '/storage',
             'visibility' => 'public',
+            'serve'      => true,   // важно: включает отдачу через Laravel при необходимости
             'throw'      => false,
             'report'     => false,
         ],
@@ -52,7 +53,7 @@ return [
             'secret'                  => env('AWS_SECRET_ACCESS_KEY'),
             'region'                  => env('AWS_DEFAULT_REGION'),
             'bucket'                  => env('AWS_BUCKET'),
-            // Если есть CDN — укажи AWS_CDN_URL, иначе AWS_URL. Иначе Laravel будет собирать URL с endpoint/region.
+            // Если есть CDN — укажи AWS_CDN_URL (или AWS_URL).
             'url'                     => env('AWS_URL', env('AWS_CDN_URL')),
             'endpoint'                => env('AWS_ENDPOINT'), // для R2/MinIO обязателен
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
@@ -61,7 +62,7 @@ return [
             'report'                  => false,
         ],
 
-        // Удобный алиас для R2 — тот же драйвер s3, можно включить FILESYSTEM_DISK=r2
+        // Удобный алиас для R2 — тот же драйвер s3
         'r2' => [
             'driver'                  => 's3',
             'key'                     => env('AWS_ACCESS_KEY_ID'),
