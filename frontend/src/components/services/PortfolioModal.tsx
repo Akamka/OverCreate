@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  type MutableRefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { fetchPortfolioItem } from '@/lib/api';
 import type { Portfolio } from '@/types/portfolio';
 import type { RGB } from '@/types/ui';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+import { toMediaUrl } from '@/lib/mediaUrl';
 
 /* =========================
    Helpers
    ========================= */
-
-const toAbs = (u?: string | null): string | null =>
-  !u ? null : /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
-
-const isVideo = (url: string) => /\.(mp4|webm|mov|avi)$/i.test(url);
 
 type AnyObj = Record<string, unknown>;
 
@@ -28,14 +29,32 @@ function getStrProp(obj: unknown, key: string): string | undefined {
   return undefined;
 }
 
-function getGallery(obj: unknown): string[] {
-  if (obj && typeof obj === 'object') {
-    const v = (obj as AnyObj)['gallery'];
+function getGalleryStrict(obj: unknown): string[] {
+  if (obj && typeof obj === 'object' && 'gallery' in (obj as AnyObj)) {
+    const v = (obj as { gallery?: unknown }).gallery;
     if (Array.isArray(v)) {
       return v.filter((x): x is string => typeof x === 'string');
     }
   }
   return [];
+}
+
+function ytId(u?: string | null): string | null {
+  if (!u) return null;
+  try {
+    const url = new URL(u);
+    if (url.hostname.includes('youtu.be')) return url.pathname.slice(1) || null;
+    if (url.hostname.includes('youtube.com')) {
+      return (
+        url.searchParams.get('v') ||
+        url.pathname.match(/\/embed\/([^/?#]+)/)?.[1] ||
+        null
+      );
+    }
+  } catch {
+    // ignore bad url
+  }
+  return null;
 }
 
 /* =========================
@@ -58,7 +77,8 @@ function getLenisFromWindow(): LenisLike | undefined {
 /* =========================
    Types
    ========================= */
-type Media = { url: string; type: 'image' | 'video' };
+type MediaType = 'image' | 'video' | 'youtube';
+type Media = { url: string; type: MediaType };
 
 export default function PortfolioModal({
   id,
@@ -93,20 +113,54 @@ export default function PortfolioModal({
   /* ===== строим медиа-лист ===== */
   const media: Media[] = useMemo(() => {
     if (!item) return [];
+
+    // 1) если есть YouTube — показываем его первым и отключаем галерею
+    const yid = ytId(getStrProp(item, 'video_url'));
+    if (yid) {
+      return [
+        {
+          url: `https://www.youtube.com/embed/${yid}?rel=0&modestbranding=1`,
+          type: 'youtube',
+        },
+      ];
+    }
+
+    // 2) иначе собираем картинки/видео
     const uniq = new Set<string>();
-    const pushMaybe = (u?: string | null) => {
-      const abs = toAbs(u ?? null);
+    const list: Media[] = [];
+
+    const push = (u?: string | null) => {
+      if (!u) return;
+      const abs = toMediaUrl(u);
       if (!abs || uniq.has(abs)) return;
       uniq.add(abs);
+      list.push({
+        url: abs,
+        type: /\.(mp4|webm|mov|avi)$/i.test(abs) ? 'video' : 'image',
+      });
     };
-    pushMaybe(getStrProp(item, 'cover_url'));
-    pushMaybe(getStrProp(item, 'preview_url'));
-    pushMaybe(getStrProp(item, 'thumbnail_url'));
-    getGallery(item).forEach((u) => pushMaybe(u));
-    return Array.from(uniq).map((u) => ({ url: u, type: isVideo(u) ? 'video' : 'image' }));
+
+    push(getStrProp(item, 'cover_url'));
+    push(getStrProp(item, 'preview_url'));
+    push(getStrProp(item, 'thumbnail_url'));
+
+    getGalleryStrict(item).forEach((u) => push(u));
+
+    return list;
   }, [item]);
 
   const total = media.length;
+
+  /* ===== навигация (зависит от total) ===== */
+  const next = useCallback(() => {
+    if (!total) return;
+    setIdx((i) => (i + 1) % total);
+  }, [total]);
+
+  const prev = useCallback(() => {
+    if (!total) return;
+    setIdx((i) => (i - 1 + total) % total);
+  }, [total]);
 
   /* ===== применяем акцентные цвета на :root на время модалки ===== */
   useEffect(() => {
@@ -116,12 +170,12 @@ export default function PortfolioModal({
     const prevAcc1 = root.style.getPropertyValue('--acc1');
     const prevAcc2 = root.style.getPropertyValue('--acc2');
 
-    // Если сервис передал свои RGB — выставляем их на :root
-    if (accFrom) root.style.setProperty('--acc1', `${accFrom[0]} ${accFrom[1]} ${accFrom[2]}`);
-    if (accTo)   root.style.setProperty('--acc2',   `${accTo[0]} ${accTo[1]} ${accTo[2]}`);
+    if (accFrom)
+      root.style.setProperty('--acc1', `${accFrom[0]} ${accFrom[1]} ${accFrom[2]}`);
+    if (accTo)
+      root.style.setProperty('--acc2', `${accTo[0]} ${accTo[1]} ${accTo[2]}`);
 
     return () => {
-      // Возвращаем прежние inline-значения (или очищаем, если их не было)
       if (prevAcc1) root.style.setProperty('--acc1', prevAcc1);
       else root.style.removeProperty('--acc1');
 
@@ -155,8 +209,12 @@ export default function PortfolioModal({
     dialogRef.current?.focus();
 
     return () => {
-      window.removeEventListener('wheel', prevent, { capture: true } as EventListenerOptions);
-      window.removeEventListener('touchmove', prevent, { capture: true } as EventListenerOptions);
+      window.removeEventListener('wheel', prevent, {
+        capture: true,
+      } as EventListenerOptions);
+      window.removeEventListener('touchmove', prevent, {
+        capture: true,
+      } as EventListenerOptions);
       root.classList.remove('oc-no-vert-scroll');
       body.classList.remove('oc-no-vert-scroll');
       root.removeAttribute('data-lenis-lock');
@@ -174,7 +232,7 @@ export default function PortfolioModal({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [id, onClose]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, onClose, next, prev]);
 
   /* ===== свайпы по viewer ===== */
   useEffect(() => {
@@ -218,25 +276,15 @@ export default function PortfolioModal({
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointercancel', onUp);
     };
-  }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const next = useCallback(() => {
-    if (!total) return;
-    setIdx((i) => (i + 1) % total);
-  }, [total]);
-
-  const prev = useCallback(() => {
-    if (!total) return;
-    setIdx((i) => (i - 1 + total) % total);
-  }, [total]);
+  }, [idx, next, prev]);
 
   if (!id) return null;
 
-  const title = (item?.title as unknown as string) || 'Loading…';
-  const excerpt = getStrProp(item as unknown, 'excerpt');
-  const tags = getStrProp(item as unknown, 'tags');
+  const title = item?.title ?? 'Loading…';
+  const excerpt = getStrProp(item, 'excerpt');
+  const tags = getStrProp(item, 'tags');
 
-  // Цвет стрелок/индикаторов — из --acc1/--acc2 (как в твоём исходнике)
+  // Цвет стрелок/индикаторов — из --acc1/--acc2
   const accGradient =
     'linear-gradient(135deg, rgb(var(--acc1, 255 255 255)), rgb(var(--acc2, 170 170 170)))';
 
@@ -247,7 +295,6 @@ export default function PortfolioModal({
       aria-modal="true"
       ref={dialogRef}
       tabIndex={-1}
-      // страхуемся от «проталкивания» страницы поверх модалки
       onWheelCapture={(e) => e.preventDefault()}
       onTouchMoveCapture={(e) => e.preventDefault()}
       style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
@@ -264,7 +311,9 @@ export default function PortfolioModal({
         {/* header */}
         <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-white/10 shrink-0">
           <div className="min-w-0">
-            <h3 className="text-white/95 font-semibold text-base sm:text-lg truncate">{title}</h3>
+            <h3 className="text-white/95 font-semibold text-base sm:text-lg truncate">
+              {title}
+            </h3>
             <div className="text-xs text-white/50">{total ? `${idx + 1} / ${total}` : '—'}</div>
           </div>
 
@@ -399,38 +448,53 @@ export default function PortfolioModal({
 
 /* --------- один слайд с плавным появлением --------- */
 function MediaSlide({ m }: { m: Media }) {
-  const [loaded, setLoaded] = useState(m.type === 'video');
-  useEffect(() => setLoaded(m.type === 'video'), [m]);
+  const [loaded, setLoaded] = useState(m.type !== 'image');
+  useEffect(() => setLoaded(m.type !== 'image'), [m]);
 
+  if (m.type === 'youtube') {
+    return (
+      <div className="absolute inset-0">
+        <iframe
+          src={m.url}
+          title="YouTube"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+        />
+      </div>
+    );
+  }
+
+  if (m.type === 'video') {
+    return (
+      <video
+        src={m.url}
+        className="absolute inset-0 w-full h-full object-contain bg-black"
+        controls
+        playsInline
+      />
+    );
+  }
+
+  // image
   return (
     <div className="absolute inset-0">
-      {m.type === 'image' ? (
-        <>
-          {!loaded && (
-            <div className="absolute inset-0 grid place-items-center text-white/60 text-sm">
-              Loading…
-            </div>
-          )}
-          <Image
-            src={m.url}
-            alt="media"
-            fill
-            sizes="(min-width:1024px) 60vw, 100vw"
-            className={`object-contain transition duration-500 ease-[cubic-bezier(.2,.7,.2,1)] ${
-              loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.01]'
-            }`}
-            onLoad={() => setLoaded(true)}
-            priority
-          />
-        </>
-      ) : (
-        <video
-          src={m.url}
-          className="absolute inset-0 w-full h-full object-contain bg-black"
-          controls
-          playsInline
-        />
+      {!loaded && (
+        <div className="absolute inset-0 grid place-items-center text-white/60 text-sm">
+          Loading…
+        </div>
       )}
+      <Image
+        src={m.url}
+        alt="media"
+        fill
+        sizes="(min-width:1024px) 60vw, 100vw"
+        className={`object-contain transition duration-500 ease-[cubic-bezier(.2,.7,.2,1)] ${
+          loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.01]'
+        }`}
+        onLoad={() => setLoaded(true)}
+        priority
+      />
     </div>
   );
 }

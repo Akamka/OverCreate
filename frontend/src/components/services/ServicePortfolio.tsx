@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import Image from 'next/image';
 import PortfolioModal from './PortfolioModal';
+import { toMediaUrl } from '@/lib/mediaUrl';
 
 /* ---------- types ---------- */
 export type RGB = [number, number, number];
@@ -460,7 +461,7 @@ function Card({
     setTilt({ rx: -(cy - 0.5) * 8, ry: (cx - 0.5) * 10 });
   };
 
-  const cover = item.cover_url ?? undefined;
+  const cover = item.cover_url ? toMediaUrl(item.cover_url) : undefined;
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
 
   // конвертируем id в число для модалки (ожидает number)
