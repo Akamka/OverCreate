@@ -5,54 +5,73 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
-// --- ВРЕМЕННЫЙ ДЕБАГ ЭНДПОИНТ ---
-// Пример вызова:
-//   https://api.overcreate.co/_debug/storage?path=portfolio/WJhBSLQudE3LAzR61yM2Vj5Y8KJRceB6p4lhEdEB.png
-// Можно передать и с префиксом /storage/... — он будет отрезан
-Route::get('/_debug/storage', function (Request $r) {
-    // берём path
-    $raw = (string) ($r->query('path') ?? '');
 
-    // нормализуем: убираем ведущие префиксы /storage, /api/storage и т.п.
-    $path = ltrim($raw, '/');
-    $path = preg_replace('~^api/~i', '', $path);
-    $path = preg_replace('~^storage/~i', '', $path);
+Route::get('/self-test', function () {
+    $start = microtime(true);
+    $results = [];
 
-    $disk = Storage::disk('public');
-    $existsOnDisk = $disk->exists($path);
-    $fullFsPath   = storage_path('app/public/'.$path);
-
-    return response()->json([
-        'given'                => $raw,
-        'normalized_path'      => $path,
-        'app_url'              => config('app.url'),
-        'disk_root'            => config('filesystems.disks.public.root'),
-        'storage_link_exists'  => is_link(public_path('storage')),
-        'storage_link_points'  => is_link(public_path('storage')) ? readlink(public_path('storage')) : null,
-        'full_fs_path'         => $fullFsPath,
-        'file_exists_on_fs'    => file_exists($fullFsPath),
-        'storage_public_exists'=> $existsOnDisk,
-        'storage_url' => \Illuminate\Support\Facades\Storage::url($path),
- // что Laravel сгенерит
-    ]);
-});
-
-// простые пробы
-Route::get('/healthz', fn() => response('OK', 200));
-
-Route::get('/', function () {
-    return response()->json([
-        'name'   => config('app.name', 'API'),
-        'status' => 'ok',
-        'time'   => now()->toIso8601String(),
-    ]);
-});
-
-Route::get('/debug/db', function () {
+    // 1️⃣ Проверка базы данных
     try {
-        $count = DB::table('portfolios')->count();
-        return response()->json(['ok' => true, 'portfolios' => $count]);
+        $tables = DB::select('SHOW TABLES');
+        $results['db']['ok'] = true;
+        $results['db']['tables_count'] = count($tables);
     } catch (\Throwable $e) {
-        return response()->json(['ok' => false, 'error' => $e->getMessage()], 500);
+        $results['db'] = [
+            'ok' => false,
+            'error' => $e->getMessage(),
+        ];
     }
+
+    // 2️⃣ Проверка стораджа
+    $diskName = config('filesystems.default', 'public');
+    $fs = Storage::disk($diskName);
+    /** @var \Illuminate\Filesystem\FilesystemAdapter $fs */
+    $testFile = 'selftest_'.uniqid().'.txt';
+    $content  = 'self-test at '.now()->toIso8601String();
+
+    try {
+        $fs->put($testFile, $content);
+        $readBack = $fs->get($testFile);
+        $url = method_exists($fs, 'url') ? $fs->url($testFile) : null;
+        $fs->delete($testFile);
+
+        $results['storage'] = [
+            'ok'         => $readBack === $content,
+            'disk'       => $diskName,
+            'url_sample' => $url,
+            'root'       => config("filesystems.disks.$diskName.root") ?? null,
+        ];
+    } catch (\Throwable $e) {
+        $results['storage'] = [
+            'ok' => false,
+            'disk' => $diskName,
+            'error' => $e->getMessage(),
+        ];
+    }
+
+    // 3️⃣ Проверка storage:link
+    $storageLink = public_path('storage');
+    $results['storage_link'] = [
+        'exists' => is_link($storageLink),
+        'points_to' => is_link($storageLink) ? readlink($storageLink) : null,
+    ];
+
+    // 4️⃣ Проверка ключевых env
+    $results['env'] = [
+        'APP_ENV'   => env('APP_ENV'),
+        'APP_URL'   => config('app.url'),
+        'FILESYSTEM_DISK' => $diskName,
+        'DB_CONNECTION'   => env('DB_CONNECTION'),
+        'DB_HOST'         => env('DB_HOST'),
+    ];
+
+    // 5️⃣ Финальный статус
+    $results['_meta'] = [
+        'ok' => $results['db']['ok'] ?? false
+                && $results['storage']['ok'] ?? false,
+        'duration_ms' => round((microtime(true) - $start) * 1000, 2),
+        'time' => now()->toIso8601String(),
+    ];
+
+    return response()->json($results);
 });
