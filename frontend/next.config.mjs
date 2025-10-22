@@ -1,21 +1,50 @@
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
 
-// Подхватываем базу API из любого из используемых имен переменных
+// База API (dev/preview/prod)
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_BASE ||
-  'http://127.0.0.1:8080';
+  'https://api.overcreate.co';
+
+// Доп. медиа-хосты (например, CDN/S3: cdn.example.com или bucket.r2.cloudflarestorage.com)
+const MEDIA_HOST_ENV = process.env.NEXT_PUBLIC_MEDIA_HOST || process.env.AWS_BUCKET_HOST || '';
+
+/**
+ * Собираем список remotePatterns для next/image
+ * - api.overcreate.co → только /storage/**
+ * - MEDIA_HOST_ENV (если задан) → на всякий случай /** (там могут быть не только /storage)
+ */
+const remotePatterns = [
+  { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/storage/**' },
+  { protocol: 'http',  hostname: 'api.overcreate.co', pathname: '/storage/**' },
+];
+
+// если задан внешний медиа-домен — разрешим его (и http, и https)
+if (MEDIA_HOST_ENV) {
+  remotePatterns.push(
+    { protocol: 'https', hostname: MEDIA_HOST_ENV, pathname: '/**' },
+    { protocol: 'http',  hostname: MEDIA_HOST_ENV, pathname: '/**' },
+  );
+}
+
+// локалка
+remotePatterns.push(
+  { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/storage/**' },
+  { protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/storage/**' },
+);
 
 const nextConfig = {
   reactStrictMode: true,
 
-  // Чтобы на клиенте всегда была валидная база API (даже если .env не задан)
+  // Чтобы на клиенте всегда была валидная база API
   env: {
     NEXT_PUBLIC_API_BASE_URL:
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       process.env.NEXT_PUBLIC_API_BASE ||
       'https://api.overcreate.co',
+    // прокинем и медиа-хост (если используешь его в клиентском коде)
+    NEXT_PUBLIC_MEDIA_HOST: MEDIA_HOST_ENV,
   },
 
   async redirects() {
@@ -25,29 +54,18 @@ const nextConfig = {
     ];
   },
 
-  // В продакшене прокси не нужен — фронт ходит напрямую на публичный API.
+  // В проде прокси не нужен — фронт ходит напрямую на публичный API.
   // В dev проксируем, чтобы избежать CORS и иметь одинаковые пути в коде.
   async rewrites() {
     if (isProd) return [];
     return [
-      { source: '/api/:path*',          destination: `${API_BASE}/api/:path*` },
-      { source: '/broadcasting/:path*', destination: `${API_BASE}/broadcasting/:path*` },
+      { source: '/api/:path*',          destination: `${API_BASE.replace(/\/+$/, '')}/api/:path*` },
+      { source: '/broadcasting/:path*', destination: `${API_BASE.replace(/\/+$/, '')}/broadcasting/:path*` },
     ];
   },
 
   images: {
-    // Разрешаем подгрузку превью обложек/галерей со стораджа API
-    remotePatterns: [
-      // прод
-      { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/storage/**' },
-      // иногда CDN/прокси может отдать http — разрешим и его
-      { protocol: 'http',  hostname: 'api.overcreate.co', pathname: '/storage/**' },
-
-      // локалка
-      { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/storage/**' },
-      { protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/storage/**' },
-    ],
-    // Можно включить современные форматы
+    remotePatterns,
     formats: ['image/avif', 'image/webp'],
   },
 };

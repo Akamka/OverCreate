@@ -20,8 +20,8 @@ export type Portfolio = {
   created_at?: string;
 };
 
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8080').replace(/\/+$/, '');
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || `${BASE}/api`) as string;
+const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'https://api.overcreate.co').replace(/\/+$/, '');
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || `${BASE}/api`).replace(/\/+$/, '') as string;
 
 /* ---------- токен ---------- */
 
