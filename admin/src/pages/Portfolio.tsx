@@ -11,6 +11,18 @@ import {
 
 const SERVICES: ServiceSlug[] = ["motion", "graphic", "web", "dev", "printing"];
 
+// База API для файлов (один домен)
+const API_BASE = "https://api.overcreate.co";
+
+/** Делает абсолютный URL к API, если пришёл относительный (/storage/...) */
+function toAbs(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = API_BASE.replace(/\/+$/, "");
+  const tail = String(url).replace(/^\/+/, "");
+  return `${base}/${tail}`;
+}
+
 /* ---------- helpers ---------- */
 function isAllowed(file: File, accept?: string) {
   if (!accept) return true;
@@ -102,10 +114,10 @@ function EditModal(props: {
     initial?.is_published ?? true
   );
 
-  const [videoUrl, setVideoUrl] = useState<string>(initial?.video_url || ""); // <— NEW
+  const [videoUrl, setVideoUrl] = useState<string>(initial?.video_url || "");
 
-  const [cover, setCover] = useState<File | null>(null); // новая обложка
-  const [gallery, setGallery] = useState<File[]>([]); // новые файлы
+  const [cover, setCover] = useState<File | null>(null);
+  const [gallery, setGallery] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,7 +129,7 @@ function EditModal(props: {
       setTags(initial?.tags || "");
       setSort(initial?.sort_order ?? 0);
       setPublished(initial?.is_published ?? true);
-      setVideoUrl(initial?.video_url || ""); // <— NEW
+      setVideoUrl(initial?.video_url || "");
       setCover(null);
       setGallery([]);
       setError(null);
@@ -280,7 +292,7 @@ function EditModal(props: {
             {initial?.cover_url && !cover && (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <img
-                  src={initial.cover_url}
+                  src={toAbs(initial.cover_url)}
                   alt="cover"
                   style={{
                     width: 120,
@@ -409,13 +421,8 @@ function EditModal(props: {
                   tags: tags.trim() || undefined,
                   sort_order: sort,
                   is_published: published,
-
-                  video_url: videoUrl, // <— NEW: отправляем как есть ("" очистит видео)
-
-                  // обложка можно вместе с видео
+                  video_url: videoUrl,
                   cover,
-
-                  // галерею шлём только если видео не указано
                   gallery_files: videoUrl.trim()
                     ? null
                     : gallery.length
@@ -653,7 +660,7 @@ export default function PortfolioPage() {
                     </td>
                     <td style={{ padding: 8 }}>
                       {it.cover_url ? (
-                        <a href={it.cover_url} target="_blank" rel="noreferrer">
+                        <a href={toAbs(it.cover_url)} target="_blank" rel="noreferrer">
                           cover
                         </a>
                       ) : (
