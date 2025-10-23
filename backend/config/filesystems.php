@@ -7,8 +7,8 @@ return [
     | Default Filesystem Disk
     |--------------------------------------------------------------------------
     |
-    | По умолчанию используем "public" (локально это /storage, в проде можно
-    | переключить на s3/r2 через FILESYSTEM_DISK=s3 или r2).
+    | По умолчанию используем "public" (локально это /storage, в продакшене
+    | можно переключить на s3/r2 через FILESYSTEM_DISK=s3 или r2).
     |
     */
 
@@ -41,7 +41,7 @@ return [
             'root'       => storage_path('app/public'),
             'url'        => rtrim(env('APP_URL', ''), '/') . '/storage',
             'visibility' => 'public',
-            'serve'      => true,   // важно: включает отдачу через Laravel при необходимости
+            'serve'      => true,   // не влияет на Laravel, но не мешает
             'throw'      => false,
             'report'     => false,
         ],

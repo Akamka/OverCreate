@@ -35,7 +35,7 @@ Route::get('/self-test', function () {
         $fs->put($testFile, $content);
         $readBack = $fs->get($testFile);
 
-        // Intelephense не знает про url(), добавим защиту
+        // Intelephense не знает про url(), поэтому — защита:
         $url = method_exists($fs, 'url') ? $fs->url($testFile) : null;
 
         $fs->delete($testFile);
@@ -79,53 +79,71 @@ Route::get('/self-test', function () {
     return response()->json($results);
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | CDN-/Storage-прокси: /storage/{path} → текущий диск
-| Работает и для локального "public", и для S3/R2.
+| Работает и для локального "public", и для S3/R2. HEAD и GET.
 |--------------------------------------------------------------------------
 */
-Route::get('/storage/{path}', function (Request $r, string $path) {
+$storageResponder = function (Request $r, string $path) {
     $diskName = config('filesystems.default', 'public');
     /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
     $disk = Storage::disk($diskName);
 
-    // нормализуем путь, уберём лишние префиксы
+    // нормализуем путь
     $path = ltrim($path, '/');
 
     if (!$disk->exists($path)) {
         abort(404);
     }
 
-    // Intelephense не видит mimeType(); делаем через method_exists + fallback
-    $mime = method_exists($disk, 'mimeType')
-        ? ($disk->mimeType($path) ?? 'application/octet-stream')
-        : 'application/octet-stream';
+    // Метаданные (с защитой от предупреждений IDE)
+    $mime  = method_exists($disk, 'mimeType')      ? ($disk->mimeType($path)      ?? 'application/octet-stream') : 'application/octet-stream';
+    $size  = method_exists($disk, 'size')          ? ($disk->size($path)          ?? null)                        : null;
+    $mtime = method_exists($disk, 'lastModified')  ? ($disk->lastModified($path)  ?? null)                        : null;
 
-    // stream (readStream существует у FilesystemAdapter)
+    // ETag/Last-Modified/Cache
+    $etag = '"'.md5($path.'|'.($size ?? '-').'|'.($mtime ?? '-')).'"';
+    $headers = [
+        'Content-Type'   => $mime,
+        'Cache-Control'  => 'public, max-age=31536000, immutable',
+        'ETag'           => $etag,
+    ];
+    if ($size !== null) {
+        $headers['Content-Length'] = (string) $size;
+    }
+    if ($mtime !== null) {
+        $headers['Last-Modified'] = gmdate('D, d M Y H:i:s', (int) $mtime) . ' GMT';
+    }
+
+    // 304 по условным заголовкам
+    $ifNoneMatch = $r->headers->get('If-None-Match');
+    $ifModified  = $r->headers->get('If-Modified-Since');
+    if ($ifNoneMatch === $etag || ($ifModified && $mtime && strtotime($ifModified) >= (int) $mtime)) {
+        return response('', 304, $headers);
+    }
+
+    // HEAD — только заголовки
+    if ($r->isMethod('HEAD')) {
+        return response('', 200, $headers);
+    }
+
+    // GET — стримим
     $stream = $disk->readStream($path);
     if ($stream === false) {
         abort(404);
     }
 
     return new StreamedResponse(function () use ($stream) {
-        while (!feof($stream)) {
-            echo fread($stream, 1024 * 8);
-            @ob_flush();
-            flush();
-        }
+        fpassthru($stream);
         if (is_resource($stream)) {
             fclose($stream);
         }
-    }, 200, [
-        'Content-Type'        => $mime,
-        'Cache-Control'       => 'public, max-age=31536000, immutable',
-        // Если нужно — можно добавить inline/attachment:
-        // 'Content-Disposition' => 'inline; filename="'.basename($path).'"',
-    ]);
-})->where('path', '.*');
+    }, 200, $headers);
+};
 
+Route::match(['GET','HEAD'], '/storage/{path}', $storageResponder)
+    ->where('path', '.*');
 
 /*
 |--------------------------------------------------------------------------
@@ -134,10 +152,8 @@ Route::get('/storage/{path}', function (Request $r, string $path) {
 */
 Route::get('/healthz', fn() => response('OK', 200));
 
-Route::get('/', function () {
-    return response()->json([
-        'name'   => config('app.name', 'API'),
-        'status' => 'ok',
-        'time'   => now()->toIso8601String(),
-    ]);
-});
+Route::get('/', fn() => response()->json([
+    'name'   => config('app.name', 'API'),
+    'status' => 'ok',
+    'time'   => now()->toIso8601String(),
+]));
