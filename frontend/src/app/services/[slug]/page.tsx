@@ -13,6 +13,12 @@ import ServiceFAQ from '@/components/services/ServiceFAQ';
 import BackToHome from '@/components/ui/BackToHome';
 import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
 import Script from 'next/script';
+import { toMediaUrl } from '@/lib/mediaUrl';
+
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'default-no-store';
+// Если захотите вернуть ISR вместо полной динамики, закомментируйте строки выше и раскомментируйте:
+// export const revalidate = 30;
 
 type CSSVarMap = Record<`--${string}`, string>;
 type StyleWithVars = React.CSSProperties & CSSVarMap;
@@ -33,18 +39,16 @@ export function generateMetadata({ params }: PageProps): Metadata {
   return {
     title,
     description,
-    alternates: alternatesFor(path), // только canonical
+    alternates: alternatesFor(path),
     openGraph: { title, description, url: path, type: 'website', siteName: 'OverCreate' },
     twitter: { card: 'summary_large_image', title, description },
     robots: { index: true, follow: true },
   };
 }
 
+// Унифицируем сборку абсолютных URL к медиа
 function normalizeCoverUrl(u?: string | null): string | undefined {
-  if (!u) return undefined;
-  if (u.startsWith('http://') || u.startsWith('https://')) return u;
-  const base = process.env.NEXT_PUBLIC_API_BASE ?? 'http://127.0.0.1:8080';
-  return `${base}${u}`;
+  return u ? toMediaUrl(u) : undefined;
 }
 
 export default async function ServicePage({ params }: PageProps) {
@@ -59,7 +63,8 @@ export default async function ServicePage({ params }: PageProps) {
   // portfolio
   let apiItems: Portfolio[] = [];
   try {
-    const { data } = await fetchPortfolioByService(params.slug, 1, 9, { revalidate: 3600 });
+    // короткий revalidate «на будущее», если вернёте ISR
+    const { data } = await fetchPortfolioByService(params.slug, 1, 9, { revalidate: 15 });
     apiItems = data ?? [];
   } catch {
     apiItems = [];
@@ -132,7 +137,7 @@ export default async function ServicePage({ params }: PageProps) {
         title={cfg.sectionTitles?.highlightsTitle ?? 'What you get'}
         subtitle={cfg.sectionTitles?.highlightsSubtitle ?? 'Value that compounds'}
       />
-{/* TODO */}
+
       <ServicePricing
         pricing={cfg.pricing}
         accentFrom={cfg.acc1}
