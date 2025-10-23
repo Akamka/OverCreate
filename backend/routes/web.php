@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Models\Portfolio;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,7 +36,6 @@ Route::get('/self-test', function () {
     try {
         $fs->put($test, $payload);
         $readBack = $fs->get($test);
-        // Intelephense не знает про url(); защита через method_exists
         $url = method_exists($fs, 'url') ? $fs->url($test) : null;
         $fs->delete($test);
 
@@ -76,8 +76,23 @@ Route::get('/self-test', function () {
 
 /*
 |--------------------------------------------------------------------------
-| CDN/Storage proxy: /storage/{path} → текущий диск (GET/HEAD)
-| Работает для локального public и S3/R2. С нормализацией путей.
+| Вспомогательная нормализация пути для стораджа
+|--------------------------------------------------------------------------
+*/
+function _normalize_storage_path(string $raw): string {
+    $p = rawurldecode($raw);
+    $p = ltrim($p, '/');
+    $p = preg_replace('~^api/~i', '', $p);
+    $p = preg_replace('~^storage/~i', '', $p);
+    $p = ltrim($p, '/');
+    // на всякий случай удалим возможный повтор storage/
+    $p = preg_replace('~^storage/~i', '', $p);
+    return $p;
+}
+
+/*
+|--------------------------------------------------------------------------
+| CDN/Storage proxy: /storage/{path}  (GET/HEAD, с debug-заголовками)
 |--------------------------------------------------------------------------
 */
 Route::match(['GET', 'HEAD'], '/storage/{path}', function (Request $r, string $path) {
@@ -85,19 +100,11 @@ Route::match(['GET', 'HEAD'], '/storage/{path}', function (Request $r, string $p
     /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
     $disk = Storage::disk($diskName);
 
-    // Нормализуем входящий путь:
-    // - снимаем URL-экранирование
-    // - убираем возможные префиксы "api/" и "storage/"
-    // - удаляем ведущие слэши
     $rawPath = $path;
-    $path = rawurldecode($path);
-    $path = ltrim($path, '/');
-    $path = preg_replace('~^api/~i', '', $path);
-    $path = preg_replace('~^storage/~i', '', $path);
-    $path = ltrim($path, '/');
+    $path = _normalize_storage_path($path);
+    $exists = $disk->exists($path);
 
-    // Проверка существования
-    if (!$disk->exists($path)) {
+    if (!$exists) {
         Log::warning('Storage proxy 404', [
             'disk'      => $diskName,
             'raw_path'  => $rawPath,
@@ -107,13 +114,12 @@ Route::match(['GET', 'HEAD'], '/storage/{path}', function (Request $r, string $p
         abort(404);
     }
 
-    // Метаданные (через method_exists — чтобы IDE не ругалась)
     $mime  = method_exists($disk, 'mimeType')     ? ($disk->mimeType($path)     ?? 'application/octet-stream') : 'application/octet-stream';
     $size  = method_exists($disk, 'size')         ? ($disk->size($path)         ?? null)                       : null;
     $mtime = method_exists($disk, 'lastModified') ? ($disk->lastModified($path) ?? null)                       : null;
 
-    // Кэш-заголовки
     $etag = '"'.md5($diskName.'|'.$path.'|'.($size ?? '-').'|'.($mtime ?? '-')).'"';
+
     $headers = [
         'Content-Type'  => $mime,
         'Cache-Control' => 'public, max-age=31536000, immutable',
@@ -126,19 +132,24 @@ Route::match(['GET', 'HEAD'], '/storage/{path}', function (Request $r, string $p
         $headers['Last-Modified'] = gmdate('D, d M Y H:i:s', (int) $mtime).' GMT';
     }
 
-    // 304?
+    // debug-заголовки по запросу
+    if ($r->boolean('debug')) {
+        $headers['X-Storage-Disk']   = $diskName;
+        $headers['X-Storage-Path']   = $path;
+        $headers['X-Storage-Exists'] = $exists ? '1' : '0';
+        $headers['X-ETag']           = trim($etag, '"');
+    }
+
     $ifNoneMatch = $r->headers->get('If-None-Match');
     $ifModified  = $r->headers->get('If-Modified-Since');
     if ($ifNoneMatch === $etag || ($ifModified && $mtime && strtotime($ifModified) >= (int) $mtime)) {
         return response('', 304, $headers);
     }
 
-    // HEAD — только заголовки
     if ($r->isMethod('HEAD')) {
         return response('', 200, $headers);
     }
 
-    // GET — потоковая отдача
     $stream = $disk->readStream($path);
     if ($stream === false) {
         Log::warning('Storage proxy readStream() returned false', ['disk' => $diskName, 'path' => $path]);
@@ -147,11 +158,118 @@ Route::match(['GET', 'HEAD'], '/storage/{path}', function (Request $r, string $p
 
     return new StreamedResponse(function () use ($stream) {
         fpassthru($stream);
-        if (is_resource($stream)) {
-            fclose($stream);
-        }
+        if (is_resource($stream)) fclose($stream);
     }, 200, $headers);
 })->where('path', '.*');
+
+/*
+|--------------------------------------------------------------------------
+| DIAG 1: подробная проверка одного файла
+| GET /_diag/storage?path=portfolio/xxx.png
+|--------------------------------------------------------------------------
+*/
+Route::get('/_diag/storage', function (Request $r) {
+    $raw = (string) $r->query('path', '');
+    $diskName = config('filesystems.default', 'public');
+    /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+    $disk = Storage::disk($diskName);
+
+    $normalized = _normalize_storage_path($raw);
+    $exists = $normalized !== '' ? $disk->exists($normalized) : false;
+
+    $mime  = $exists && method_exists($disk,'mimeType')     ? ($disk->mimeType($normalized)     ?? null) : null;
+    $size  = $exists && method_exists($disk,'size')         ? ($disk->size($normalized)         ?? null) : null;
+    $mtime = $exists && method_exists($disk,'lastModified') ? ($disk->lastModified($normalized) ?? null) : null;
+
+    $etag = $exists ? md5($diskName.'|'.$normalized.'|'.($size ?? '-').'|'.($mtime ?? '-')) : null;
+
+    $firstBytesHex = null;
+    if ($exists) {
+        $s = $disk->readStream($normalized);
+        if (is_resource($s)) {
+            $chunk = fread($s, 32);
+            $firstBytesHex = $chunk !== false ? bin2hex($chunk) : null;
+            fclose($s);
+        }
+    }
+
+    // Абсолютный URL, если доступен
+    $url = ($normalized !== '' && method_exists($disk, 'url')) ? $disk->url($normalized) : null;
+
+    // Прямой путь в ФС (для локального диска)
+    $root = config("filesystems.disks.$diskName.root");
+    $fsPath = $root ? rtrim($root,'/\\').DIRECTORY_SEPARATOR.$normalized : null;
+    $fsExists = $fsPath ? file_exists($fsPath) : null;
+
+    return response()->json([
+        'input' => [
+            'given'      => $raw,
+            'normalized' => $normalized,
+        ],
+        'disk' => [
+            'name' => $diskName,
+            'root' => $root,
+        ],
+        'exists' => $exists,
+        'meta' => [
+            'mime'  => $mime,
+            'size'  => $size,
+            'mtime' => $mtime,
+            'etag'  => $etag,
+        ],
+        'url' => $url,
+        'fs' => [
+            'path'   => $fsPath,
+            'exists' => $fsExists,
+        ],
+        'sample' => [
+            'first_32_bytes_hex' => $firstBytesHex,
+        ],
+    ]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| DIAG 2: листинг каталога на диске
+| GET /_diag/list?dir=portfolio
+|--------------------------------------------------------------------------
+*/
+Route::get('/_diag/list', function (Request $r) {
+    $dir = trim((string) $r->query('dir', 'portfolio'), '/');
+    $diskName = config('filesystems.default', 'public');
+    /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+    $disk = Storage::disk($diskName);
+
+    $files = $disk->files($dir);
+    $out = [];
+    foreach ($files as $f) {
+        $out[] = [
+            'path'   => $f,
+            'exists' => $disk->exists($f),
+            'url'    => method_exists($disk,'url') ? $disk->url($f) : null,
+            'size'   => method_exists($disk,'size') ? $disk->size($f) : null,
+        ];
+    }
+
+    return response()->json([
+        'disk'  => $diskName,
+        'dir'   => $dir,
+        'count' => count($out),
+        'files' => $out,
+    ]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| DIAG 3: посмотреть запись Portfolio из БД
+| GET /_diag/portfolio/123
+|--------------------------------------------------------------------------00,
+*/
+Route::get('/_diag/portfolio/{id}', function (int $id) {
+    $p = Portfolio::find($id);
+    if (!$p) return response()->json(['ok' => false, 'error' => 'not-found'], 404);
+    return $p; // json
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -159,7 +277,6 @@ Route::match(['GET', 'HEAD'], '/storage/{path}', function (Request $r, string $p
 |--------------------------------------------------------------------------
 */
 Route::get('/healthz', fn () => response('OK', 200));
-
 Route::get('/', fn () => response()->json([
     'name'   => config('app.name', 'API'),
     'status' => 'ok',
