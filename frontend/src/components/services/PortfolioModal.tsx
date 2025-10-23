@@ -393,12 +393,14 @@ export default function PortfolioModal({
                     >
                       {m.type === 'image' ? (
                         <Image
-                          src={m.url}
-                          alt={`thumb-${i}`}
-                          fill
-                          sizes="72px"
-                          className="object-cover"
-                        />
+                        src={m.url}
+                        alt={`thumb-${i}`}
+                        fill
+                        sizes="72px"
+                        className="object-cover"
+                        unoptimized
+                      />
+
                       ) : (
                         <div className="absolute inset-0 grid place-items-center text-white/80 text-xs">
                           ▶
@@ -484,17 +486,19 @@ function MediaSlide({ m }: { m: Media }) {
           Loading…
         </div>
       )}
-      <Image
-        src={m.url}
-        alt="media"
-        fill
-        sizes="(min-width:1024px) 60vw, 100vw"
-        className={`object-contain transition duration-500 ease-[cubic-bezier(.2,.7,.2,1)] ${
-          loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.01]'
-        }`}
-        onLoad={() => setLoaded(true)}
-        priority
-      />
+        <Image
+          src={m.url}
+          alt="media"
+          fill
+          sizes="(min-width:1024px) 60vw, 100vw"
+          className={`object-contain transition duration-500 ease-[cubic-bezier(.2,.7,.2,1)] ${
+            loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.01]'
+          }`}
+          onLoad={() => setLoaded(true)}
+          priority
+          unoptimized
+        />
+
     </div>
   );
 }

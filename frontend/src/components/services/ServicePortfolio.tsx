@@ -509,6 +509,7 @@ function Card({
             sizes="(min-width: 1024px) 33vw, 90vw"
             style={{ objectFit: fit }}
             className="pf-img"
+            unoptimized
           />
         ) : (
           <div className="pf-nopreview">no preview</div>
