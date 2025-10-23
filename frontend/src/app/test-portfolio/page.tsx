@@ -2,8 +2,8 @@
 import ServicePortfolio from '@/components/services/ServicePortfolio';
 import { mapApiToServiceItems } from '@/lib/portfolioMapping';
 
-// Делаем страницу динамической, чтобы Next её не экспортировал статически
-export const dynamic = 'force-dynamic'; // альтернативно: export const revalidate = 0;
+// Делаем страницу динамической, чтобы Next не пытался её экспортировать статически
+export const dynamic = 'force-dynamic'; // либо export const revalidate = 0;
 
 async function loadItems() {
   try {
@@ -15,10 +15,9 @@ async function loadItems() {
     const url = new URL(`${BASE}/api/portfolio`);
     url.searchParams.set('published', '1');
     url.searchParams.set('per_page', '12');
-    // при желании можно включить конкретный сервис:
+    // при необходимости можно зафиксировать сервис:
     // url.searchParams.set('service_type', 'motion');
 
-    // no-store, чтобы точно ушёл запрос на сервере
     const res = await fetch(url.toString(), { cache: 'no-store' });
     if (!res.ok) return [];
     const json = await res.json();
@@ -36,7 +35,7 @@ export default async function TestPortfolioPage() {
       <ServicePortfolio
         title="Portfolio (smoke test)"
         subtitle={`Loaded ${items.length} items`}
-        items={items}
+        items={items}           // тип совместим структурно, импорт типов не нужен
         accentFrom={[255, 80, 180]}
         accentTo={[120, 140, 255]}
       />
