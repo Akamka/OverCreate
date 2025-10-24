@@ -18,8 +18,10 @@ export type RGB = [number, number, number];
 export type ServicePortfolioItem = {
   id: number | string;
   title: string;
-  /** Абсолютный или относительный урл обложки (если приходит с API). */
   cover_url?: string | null;
+  preview_url?: string | null;
+  thumbnail_url?: string | null;
+  gallery?: string[] | null;
   coverFit?: 'cover' | 'contain';
   excerpt?: string | null;
   href?: string;
@@ -37,45 +39,55 @@ type AccVars = Record<'--acc1' | '--acc2', string>;
 type BleedVars = CSSProperties & { ['--pf-bleed']?: string };
 
 /* ======================== helpers ====================== */
-/** База публичного API (без трейлинга и без завершающего /api). */
+/** База публичного API (без завершающего / и без /api в конце) */
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.overcreate.co'
 )
   .replace(/\/+$/, '')
   .replace(/\/api$/i, '');
 
-/** Нормализует URL к медиа:
- * - если абсолютный http(s) — приводит http -> https (во избежание mixed content)
- * - если относительный — проклеивает к API_BASE
+/** true если url — видео */
+const isVideo = (u: string): boolean => /\.(mp4|webm|mov|avi)$/i.test(u);
+
+/** Нормализует медиа-URL:
+ * - абсолютные http → https (чтобы не было mixed content)
+ * - относительные → склеиваем с API_BASE
+ * - пропускаем через toMediaUrl, если оно вернёт нормализованный вариант
  */
-function normalizeMedia(url: string): string {
-  const u = url.trim();
-  if (!u) return '';
+function normalizeMediaUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const viaHelper = toMediaUrl(raw) ?? raw;
+  const u = viaHelper.trim();
+  if (!u) return null;
+
   if (/^https?:\/\//i.test(u)) {
-    // форсим https, если вдруг пришло http (частая причина «не видно» под https сайтом)
     return u.replace(/^http:\/\//i, 'https://');
   }
-  // относительный путь
   return `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
 }
 
-/** Получаем src для превью карточки:
- * 1) если есть cover_url — нормализуем через toMediaUrl -> normalizeMedia
- * 2) иначе — стабильный публичный эндпоинт: /api/media/portfolio/:id/cover
- */
-function getCoverSrc(item: ServicePortfolioItem): string | null {
-  const fromCover = item.cover_url ? (toMediaUrl(item.cover_url) ?? item.cover_url) : '';
-  if (fromCover && fromCover.trim()) return normalizeMedia(fromCover);
+/** Достаём лучший кандидат на обложку из полей элемента */
+function pickCover(item: ServicePortfolioItem): string | null {
+  // 1) cover/preview/thumbnail
+  const prioritized = [
+    item.cover_url,
+    item.preview_url,
+    item.thumbnail_url,
+  ].filter(Boolean) as string[];
 
-  const id =
-    typeof item.id === 'number'
-      ? String(item.id)
-      : typeof item.id === 'string'
-      ? item.id
-      : null;
+  for (const cand of prioritized) {
+    const norm = normalizeMediaUrl(cand);
+    if (norm) return norm;
+  }
 
-  if (!id) return null;
-  return `${API_BASE}/api/media/portfolio/${encodeURIComponent(id)}/cover`;
+  // 2) gallery — первый НЕ видео элемент
+  const gallery = Array.isArray(item.gallery) ? item.gallery : [];
+  const firstImg = gallery.find((u) => !!u && !isVideo(u));
+  const normFromGallery = normalizeMediaUrl(firstImg);
+  if (normFromGallery) return normFromGallery;
+
+  // 3) ничего не нашли
+  return null;
 }
 
 /* ======================== component ==================== */
@@ -423,7 +435,7 @@ function Card({
 }) {
   const [tilt, setTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
   const [hover, setHover] = useState<boolean>(false);
-  const [broken, setBroken] = useState<boolean>(false); // fallback на <img>, если next/image упал
+  const [fallbackImg, setFallbackImg] = useState<boolean>(false);
 
   const onMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -432,34 +444,8 @@ function Card({
     setTilt({ rx: -(cy - 0.5) * 8, ry: (cx - 0.5) * 10 });
   };
 
-  const src = getCoverSrc(item);
+  const src = pickCover(item);
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
-
-  // Диагностика: проверяем доступность src HEAD-запросом (только в browser)
-  useEffect(() => {
-    if (!src) return;
-    let aborted = false;
-    fetch(src, { method: 'HEAD', cache: 'no-store' })
-      .then((r) => {
-        if (aborted) return;
-        // eslint-disable-next-line no-console
-        console.log('PF HEAD', {
-          id: item.id,
-          status: r.status,
-          type: r.headers.get('content-type'),
-          url: r.url,
-        });
-      })
-      .catch((err) => {
-        if (!aborted) {
-          // eslint-disable-next-line no-console
-          console.error('PF HEAD error', { id: item.id, src, err });
-        }
-      });
-    return () => {
-      aborted = true;
-    };
-  }, [src, item.id]);
 
   // модалка ожидает number
   const numericId: number | null =
@@ -499,8 +485,7 @@ function Card({
       <div className="pf-ring" />
       <div className="pf-cover relative">
         {src ? (
-          broken ? (
-            // Fallback: обычный <img>, если next/image дал onError
+          fallbackImg ? (
             <img
               src={src}
               alt={item.title}
@@ -521,18 +506,8 @@ function Card({
               sizes="(min-width: 1024px) 33vw, 90vw"
               style={{ objectFit: fit }}
               className="pf-img"
-              // Включён unoptimized, чтобы не зависеть от remotePatterns во время диагностики
               unoptimized
-              onError={(e) => {
-                // eslint-disable-next-line no-console
-                console.error('IMG ERROR', { id: item.id, src });
-                setBroken(true);
-                (e.currentTarget as HTMLImageElement).style.opacity = '0.2';
-              }}
-              onLoad={() => {
-                // eslint-disable-next-line no-console
-                console.log('IMG OK', { id: item.id, src });
-              }}
+              onError={() => setFallbackImg(true)}
             />
           )
         ) : (
