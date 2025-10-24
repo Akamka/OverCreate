@@ -1,16 +1,14 @@
 // app/api/media/portfolio/[id]/cover/route.ts
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 /**
  * Прокси-роут для стабильной раздачи обложек портфолио.
- * По ID тянем JSON проекта с твоего API, берем cover_url/cover_key,
- * затем скачиваем файл и отдаём его с правильными cache-заголовками.
- *
- * Требуется переменная окружения:
- *   API_BASE="https://api.overcreate.co"            // приватная, только на сервере
- *   (если у тебя уже есть NEXT_PUBLIC_API_BASE — можно вместо неё,
- *    но лучше отдельную непубличную API_BASE)
+ * Нужна переменная окружения:
+ *   API_BASE="https://api.overcreate.co"  // серверная
  */
+
+export const revalidate = 0;            // без ISR кэша на уровне роута
+export const dynamic = "force-dynamic"; // не статизировать
 
 const API_BASE = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE;
 
@@ -21,22 +19,21 @@ function toAbs(url: string): string {
   return `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
+// 👇 ключевое изменение — params: Promise<...> и await
 export async function GET(
   _req: NextRequest,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   if (!API_BASE) {
     return new Response("API_BASE is not configured", { status: 500 });
   }
 
-  const id = ctx.params.id;
+  const { id } = await ctx.params;
 
-  // 1) Берём метаданные одного проекта
+  // 1) Берём метаданные проекта
   const metaRes = await fetch(`${API_BASE}/api/portfolio/${id}`, {
-    // важен no-store, чтобы всегда видеть актуальный cover_url
     cache: "no-store",
-    // если API требует авторизацию — добавь заголовок здесь:
-    // headers: { Authorization: `Bearer ${process.env.API_TOKEN}` }
+    // headers: { Authorization: `Bearer ${process.env.API_TOKEN}` },
   });
 
   if (!metaRes.ok) {
@@ -44,20 +41,13 @@ export async function GET(
   }
 
   const json = await metaRes.json().catch(() => ({}));
-  // Ожидаем одно из полей (адаптируй под свой ответ):
-  //  - data.cover_url (относительная или абсолютная)
-  //  - cover_url
-  //  - cover_key (тогда должен быть эндпоинт, который по ключу даст файл)
   const item = json?.data ?? json;
 
   const coverSrc: string | undefined =
-    item?.cover_url ??
-    item?.coverUrl ??
-    item?.cover ??
-    undefined;
+    item?.cover_url ?? item?.coverUrl ?? item?.cover ?? undefined;
 
   if (!coverSrc && item?.cover_key) {
-    // Если вместо URL приходит ключ — опционально подставь свой роут получения файла по ключу
+    // Если приходит ключ — здесь можно собрать URL получения файла по ключу
     // coverSrc = `${API_BASE}/api/media/by-key/${encodeURIComponent(item.cover_key)}`;
   }
 
@@ -67,13 +57,12 @@ export async function GET(
 
   const abs = toAbs(String(coverSrc));
 
-  // 2) Тянем сам файл и проксируем поток наружу
+  // 2) Тянем файл и проксируем поток наружу
   const imgRes = await fetch(abs, { cache: "no-store" });
   if (!imgRes.ok || !imgRes.body) {
     return new Response("Cover fetch failed", { status: 404 });
   }
 
-  // Пробрасываем тип и часть заголовков, но свой Cache-Control
   const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
   const etag = imgRes.headers.get("etag") ?? undefined;
   const lastMod = imgRes.headers.get("last-modified") ?? undefined;
@@ -81,8 +70,8 @@ export async function GET(
   const headers = new Headers();
   headers.set("Content-Type", contentType);
   headers.set(
-    // браузеру — сразу; CDN — 1 день; SWR — неделя
     "Cache-Control",
+    // браузер — сразу; CDN — сутки; SWR — неделя
     "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"
   );
   if (etag) headers.set("ETag", etag.replaceAll('"', ""));
