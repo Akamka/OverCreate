@@ -37,7 +37,6 @@ type AccVars = Record<'--acc1' | '--acc2', string>;
 type BleedVars = CSSProperties & { ['--pf-bleed']?: string };
 
 /* ======================== helpers ====================== */
-
 /** База публичного API (без трейлинга и без завершающего /api). */
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.overcreate.co'
@@ -45,15 +44,29 @@ const API_BASE = (
   .replace(/\/+$/, '')
   .replace(/\/api$/i, '');
 
-/** Получаем src для превью карточки.
- * 1) Если есть cover_url → нормализуем через toMediaUrl
- * 2) Иначе — стабильный публичный эндпоинт на API: /api/media/portfolio/:id/cover
+/** Нормализует URL к медиа:
+ * - если абсолютный http(s) — приводит http -> https (во избежание mixed content)
+ * - если относительный — проклеивает к API_BASE
+ */
+function normalizeMedia(url: string): string {
+  const u = url.trim();
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u)) {
+    // форсим https, если вдруг пришло http (частая причина «не видно» под https сайтом)
+    return u.replace(/^http:\/\//i, 'https://');
+  }
+  // относительный путь
+  return `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
+}
+
+/** Получаем src для превью карточки:
+ * 1) если есть cover_url — нормализуем через toMediaUrl -> normalizeMedia
+ * 2) иначе — стабильный публичный эндпоинт: /api/media/portfolio/:id/cover
  */
 function getCoverSrc(item: ServicePortfolioItem): string | null {
-  if (item.cover_url && item.cover_url.trim()) {
-    // toMediaUrl может вернуть undefined → приводим к null для строгой типизации
-    return toMediaUrl(item.cover_url) ?? null;
-  }
+  const fromCover = item.cover_url ? (toMediaUrl(item.cover_url) ?? item.cover_url) : '';
+  if (fromCover && fromCover.trim()) return normalizeMedia(fromCover);
+
   const id =
     typeof item.id === 'number'
       ? String(item.id)
@@ -61,13 +74,11 @@ function getCoverSrc(item: ServicePortfolioItem): string | null {
       ? item.id
       : null;
 
-  return id
-    ? `${API_BASE}/api/media/portfolio/${encodeURIComponent(id)}/cover`
-    : null;
+  if (!id) return null;
+  return `${API_BASE}/api/media/portfolio/${encodeURIComponent(id)}/cover`;
 }
 
 /* ======================== component ==================== */
-
 export default function ServicePortfolio({
   title = 'Portfolio',
   subtitle = 'Selected work',
@@ -227,82 +238,6 @@ export default function ServicePortfolio({
     recalcCardWidth();
   }, [recalcCardWidth]);
 
-  /* ------------------- drag / swipe с инерцией/снапом ------------------- */
-  useEffect(() => {
-    const vp = viewportRef.current;
-    const track = trackRef.current;
-    if (!vp || !track) return;
-
-    let startX = 0;
-    let startLeft = 0;
-    let dragging = false;
-    let lastX = 0;
-    let lastT = 0;
-    let velocity = 0;
-
-    const isInteractive = (el: EventTarget | null): boolean =>
-      el instanceof Element &&
-      Boolean(el.closest('button, a, [role="button"], input, select, textarea, label'));
-
-    const down = (e: PointerEvent) => {
-      if (isInteractive(e.target)) return;
-
-      dragging = true;
-      startX = e.clientX;
-      startLeft = vp.scrollLeft;
-      lastX = e.clientX;
-      lastT = e.timeStamp;
-      track.setPointerCapture(e.pointerId);
-      (track.style as CSSStyleDeclaration).cursor = 'grabbing';
-      cancelAnim();
-    };
-
-    const move = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dx = e.clientX - startX;
-      vp.scrollLeft = startLeft - dx;
-
-      const dt = e.timeStamp - lastT || 1;
-      velocity = (e.clientX - lastX) / dt;
-      lastX = e.clientX;
-      lastT = e.timeStamp;
-    };
-
-    const up = () => {
-      if (!dragging) return;
-      dragging = false;
-      track.style.removeProperty('cursor');
-
-      const positions = getPagePositions();
-      let curr = 0;
-      let best = Number.POSITIVE_INFINITY;
-      positions.forEach((pos, i) => {
-        const d = Math.abs(vp.scrollLeft - pos);
-        if (d < best) {
-          best = d;
-          curr = i;
-        }
-      });
-
-      const threshold = 0.25;
-      const target =
-        velocity > threshold ? curr - 1 : velocity < -threshold ? curr + 1 : curr;
-      goTo(target);
-    };
-
-    track.addEventListener('pointerdown', down);
-    track.addEventListener('pointermove', move);
-    track.addEventListener('pointerup', up);
-    track.addEventListener('pointercancel', up);
-
-    return () => {
-      track.removeEventListener('pointerdown', down);
-      track.removeEventListener('pointermove', move);
-      track.removeEventListener('pointerup', up);
-      track.removeEventListener('pointercancel', up);
-    };
-  }, [goTo, getPagePositions, cancelAnim]);
-
   /* стрелки с клавиатуры */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -448,7 +383,6 @@ export default function ServicePortfolio({
 }
 
 /* --------------------------- Dots --------------------------- */
-
 function Dots({
   pages,
   page,
@@ -478,7 +412,6 @@ function Dots({
 }
 
 /* ------------------------------ Card ------------------------------ */
-
 function Card({
   item,
   cardW,
@@ -490,6 +423,7 @@ function Card({
 }) {
   const [tilt, setTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
   const [hover, setHover] = useState<boolean>(false);
+  const [broken, setBroken] = useState<boolean>(false); // fallback на <img>, если next/image упал
 
   const onMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -500,6 +434,32 @@ function Card({
 
   const src = getCoverSrc(item);
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
+
+  // Диагностика: проверяем доступность src HEAD-запросом (только в browser)
+  useEffect(() => {
+    if (!src) return;
+    let aborted = false;
+    fetch(src, { method: 'HEAD', cache: 'no-store' })
+      .then((r) => {
+        if (aborted) return;
+        // eslint-disable-next-line no-console
+        console.log('PF HEAD', {
+          id: item.id,
+          status: r.status,
+          type: r.headers.get('content-type'),
+          url: r.url,
+        });
+      })
+      .catch((err) => {
+        if (!aborted) {
+          // eslint-disable-next-line no-console
+          console.error('PF HEAD error', { id: item.id, src, err });
+        }
+      });
+    return () => {
+      aborted = true;
+    };
+  }, [src, item.id]);
 
   // модалка ожидает number
   const numericId: number | null =
@@ -539,16 +499,42 @@ function Card({
       <div className="pf-ring" />
       <div className="pf-cover relative">
         {src ? (
-          <Image
-            src={src}
-            alt={item.title}
-            fill
-            sizes="(min-width: 1024px) 33vw, 90vw"
-            style={{ objectFit: fit }}
-            className="pf-img"
-            /* можно убрать unoptimized, если хотите полноценную оптимизацию */
-            unoptimized
-          />
+          broken ? (
+            // Fallback: обычный <img>, если next/image дал onError
+            <img
+              src={src}
+              alt={item.title}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: fit,
+              }}
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <Image
+              src={src}
+              alt={item.title}
+              fill
+              sizes="(min-width: 1024px) 33vw, 90vw"
+              style={{ objectFit: fit }}
+              className="pf-img"
+              // Включён unoptimized, чтобы не зависеть от remotePatterns во время диагностики
+              unoptimized
+              onError={(e) => {
+                // eslint-disable-next-line no-console
+                console.error('IMG ERROR', { id: item.id, src });
+                setBroken(true);
+                (e.currentTarget as HTMLImageElement).style.opacity = '0.2';
+              }}
+              onLoad={() => {
+                // eslint-disable-next-line no-console
+                console.log('IMG OK', { id: item.id, src });
+              }}
+            />
+          )
         ) : (
           <div className="pf-nopreview">no preview</div>
         )}
