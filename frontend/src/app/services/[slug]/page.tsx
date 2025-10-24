@@ -15,10 +15,11 @@ import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
 import Script from 'next/script';
 import { toMediaUrl } from '@/lib/mediaUrl';
 
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'default-no-store';
-// Если захотите вернуть ISR вместо полной динамики, закомментируйте строки выше и раскомментируйте:
-// export const revalidate = 30;
+// export const dynamic = 'force-dynamic';
+// export const fetchCache = 'default-no-store';
+//* Если захотите вернуть ISR вместо полной динамики, закомментируйте строки выше и раскомментируйте:
+export const revalidate = 30;
+export const fetchCache = 'default-cache';
 
 type CSSVarMap = Record<`--${string}`, string>;
 type StyleWithVars = React.CSSProperties & CSSVarMap;
