@@ -10,6 +10,15 @@ function forceHttpsForOvercreate(u: URL) {
   }
 }
 
+/** Если адрес с api.overcreate.co — возвращаем только путь,
+ * чтобы браузер ходил на /storage/... через наш rewrite (без CORS) */
+function stripOriginIfApiOvercreate(u: URL): string {
+  if (u.hostname === 'api.overcreate.co') {
+    return u.pathname + (u.search || '');
+  }
+  return u.toString();
+}
+
 /** Убираем лишний префикс /api/ перед /storage/ или /uploads/ */
 function stripApiPrefixPath(path: string) {
   return path.replace(/^\/api\/(storage\/|uploads\/)/i, '/$1');
@@ -18,7 +27,6 @@ function stripApiPrefixPath(path: string) {
 /** Если передали ссылку вида "/_next/image?url=..." — достаём исходный url */
 function unwrapNextImageUrl(s: string): string {
   try {
-    // абсолютный
     if (/^https?:\/\//i.test(s)) {
       const u = new URL(s);
       if (u.pathname.includes('/_next/image')) {
@@ -27,7 +35,6 @@ function unwrapNextImageUrl(s: string): string {
       }
       return s;
     }
-    // относительный
     if (s.startsWith('/_next/image')) {
       const idx = s.indexOf('?');
       if (idx >= 0) {
@@ -46,39 +53,33 @@ export function safeImageSrc(
 ): string {
   if (!src || typeof src !== 'string') return fallback;
 
-  // trim + normalize slashes
   let s = src.trim().replace(/\\/g, '/');
 
-  // Разворачиваем вложенный /_next/image
   s = unwrapNextImageUrl(s);
 
-  // data/blob: как есть
   if (/^(data:|blob:)/i.test(s)) return s;
 
-  // абсолютный URL?
   if (/^https?:\/\//i.test(s)) {
     try {
       const u = new URL(s);
       u.pathname = stripApiPrefixPath(u.pathname);
       forceHttpsForOvercreate(u);
-      return u.toString();
+      // ключ: убираем origin для нашего API-домена → вернётся /storage/...
+      return stripOriginIfApiOvercreate(u);
     } catch {
-      // если парсинг не удался — ниже обработаем как относительный
+      // упадём ниже
     }
   }
 
-  // путь из public/
   if (s.startsWith('/')) {
     s = stripApiPrefixPath(s);
     return s;
   }
 
-  // относительный путь от API
-  s = s.replace(/^api\//i, '');        // "api/storage/..." -> "storage/..."
-  s = stripApiPrefixPath('/' + s);     // добавим слеш + уберём "/api/" если есть
+  s = s.replace(/^api\//i, '');     // "api/storage/..." -> "storage/..."
+  s = stripApiPrefixPath('/' + s);
 
   if (API_BASE) return `${API_BASE}${s}`;
-
   return fallback;
 }
 

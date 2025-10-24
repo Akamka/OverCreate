@@ -9,7 +9,8 @@ import React, {
   type CSSProperties,
 } from 'react';
 import PortfolioModal from './PortfolioModal';
-import { toMediaUrl } from '@/lib/mediaUrl';
+import { safeImageSrc } from '@/lib/images';
+/* eslint-disable @next/next/no-img-element */
 
 /* ======================== types ======================== */
 export type RGB = [number, number, number];
@@ -23,7 +24,6 @@ export type ServicePortfolioItem = {
   preview_url?: string | null;
   thumbnail_url?: string | null;
   /** Если у item где-то есть gallery (строки), тоже попробуем. */
-
   [k: string]: unknown;
   coverFit?: 'cover' | 'contain';
   excerpt?: string | null;
@@ -43,27 +43,24 @@ type BleedVars = CSSProperties & { ['--pf-bleed']?: string };
 
 /* ======================== helpers ====================== */
 
-/** Берём первую валидную картинку из набора полей, НИЧЕГО не проксируем. */
-function pickCoverSrc(it: ServicePortfolioItem): string | null {
-  // 1) основные кандидаты
+/** Берём первый «сырой» url из набора полей (без нормализации). */
+function pickCoverSrcRaw(it: ServicePortfolioItem): string | null {
   const candidates: Array<string | null | undefined> = [
     it.cover_url,
     (it as { preview_url?: string | null }).preview_url,
     (it as { thumbnail_url?: string | null }).thumbnail_url,
   ];
 
-  // 2) если есть gallery — добавим первую картинку
   const g = (it as { gallery?: unknown }).gallery;
   if (Array.isArray(g)) {
-    const firstImg = g.find((u) => typeof u === 'string' && !/\.(mp4|webm|mov|avi)$/i.test(u));
+    const firstImg = g.find(
+      (u) => typeof u === 'string' && !/\.(mp4|webm|mov|avi)$/i.test(u)
+    );
     if (firstImg) candidates.push(firstImg);
   }
 
-  // 3) приводим к абсолютным url и возвращаем первый валидный
   for (const c of candidates) {
-    if (!c || typeof c !== 'string' || !c.trim()) continue;
-    const abs = toMediaUrl(c);
-    if (abs) return abs;
+    if (typeof c === 'string' && c.trim()) return c.trim();
   }
   return null;
 }
@@ -501,10 +498,12 @@ function Card({
     setTilt({ rx: -(cy - 0.5) * 8, ry: (cx - 0.5) * 10 });
   };
 
-  const src = pickCoverSrc(item);
+  // сырой URL → нормализуем; для api.overcreate.co получится локальный /storage/... (через rewrite)
+  const raw = pickCoverSrcRaw(item);
+  const src = raw ? safeImageSrc(raw) : undefined;
+
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
 
-  // модалка ожидает number
   const numericId: number | null =
     typeof item.id === 'number'
       ? item.id
@@ -514,9 +513,7 @@ function Card({
 
   const handleOpen = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    if (numericId !== null && Number.isFinite(numericId)) {
-      onOpen(numericId);
-    }
+    if (numericId !== null && Number.isFinite(numericId)) onOpen(numericId);
   };
 
   return (
@@ -539,8 +536,10 @@ function Card({
         } as CSSProperties
       }
     >
+      
       <div className="pf-ring" />
       <div className="pf-cover relative">
+        
         {src && !failed ? (
           <img
             src={src}
@@ -552,10 +551,9 @@ function Card({
               height: '100%',
               objectFit: fit,
             }}
-            crossOrigin="anonymous"
+            // НЕ ставим crossOrigin — иначе снова спровоцируем CORS
             onError={() => {
               setFailed(true);
-              // Понятный лог, чтобы сразу видеть, что именно не загрузилось:
               // eslint-disable-next-line no-console
               console.warn('[ServicePortfolio] image failed:', { id: item.id, src });
             }}
