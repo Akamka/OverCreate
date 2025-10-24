@@ -74,7 +74,7 @@ export default async function ServicePage({ params }: PageProps) {
   const items = apiItems.map((p) => ({
     id: p.id,
     title: p.title,
-    cover_url: normalizeCoverUrl(p.cover_url),
+    cover_url: `/api/media/portfolio/${p.id}/cover`,
     excerpt: p.excerpt ?? undefined,
     href: `/portfolio/${p.id}`,
   }));
