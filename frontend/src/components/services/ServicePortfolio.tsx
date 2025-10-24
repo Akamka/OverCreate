@@ -18,10 +18,7 @@ export type RGB = [number, number, number];
 export type ServicePortfolioItem = {
   id: number | string;
   title: string;
-  cover_url?: string | null;
-  preview_url?: string | null;
-  thumbnail_url?: string | null;
-  gallery?: string[] | null;
+  cover_url?: string | null;          // из API
   coverFit?: 'cover' | 'contain';
   excerpt?: string | null;
   href?: string;
@@ -39,55 +36,11 @@ type AccVars = Record<'--acc1' | '--acc2', string>;
 type BleedVars = CSSProperties & { ['--pf-bleed']?: string };
 
 /* ======================== helpers ====================== */
-/** База публичного API (без завершающего / и без /api в конце) */
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.overcreate.co'
-)
-  .replace(/\/+$/, '')
-  .replace(/\/api$/i, '');
-
-/** true если url — видео */
-const isVideo = (u: string): boolean => /\.(mp4|webm|mov|avi)$/i.test(u);
-
-/** Нормализует медиа-URL:
- * - абсолютные http → https (чтобы не было mixed content)
- * - относительные → склеиваем с API_BASE
- * - пропускаем через toMediaUrl, если оно вернёт нормализованный вариант
- */
-function normalizeMediaUrl(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const viaHelper = toMediaUrl(raw) ?? raw;
-  const u = viaHelper.trim();
+/** Единственный корректный источник превью — cover_url из API */
+function getCoverSrc(item: ServicePortfolioItem): string | null {
+  const u = item.cover_url?.trim();
   if (!u) return null;
-
-  if (/^https?:\/\//i.test(u)) {
-    return u.replace(/^http:\/\//i, 'https://');
-  }
-  return `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
-}
-
-/** Достаём лучший кандидат на обложку из полей элемента */
-function pickCover(item: ServicePortfolioItem): string | null {
-  // 1) cover/preview/thumbnail
-  const prioritized = [
-    item.cover_url,
-    item.preview_url,
-    item.thumbnail_url,
-  ].filter(Boolean) as string[];
-
-  for (const cand of prioritized) {
-    const norm = normalizeMediaUrl(cand);
-    if (norm) return norm;
-  }
-
-  // 2) gallery — первый НЕ видео элемент
-  const gallery = Array.isArray(item.gallery) ? item.gallery : [];
-  const firstImg = gallery.find((u) => !!u && !isVideo(u));
-  const normFromGallery = normalizeMediaUrl(firstImg);
-  if (normFromGallery) return normFromGallery;
-
-  // 3) ничего не нашли
-  return null;
+  return toMediaUrl(u) ?? null;
 }
 
 /* ======================== component ==================== */
@@ -250,6 +203,82 @@ export default function ServicePortfolio({
     recalcCardWidth();
   }, [recalcCardWidth]);
 
+  /* ------------------- drag / swipe с инерцией/снапом ------------------- */
+  useEffect(() => {
+    const vp = viewportRef.current;
+    const track = trackRef.current;
+    if (!vp || !track) return;
+
+    let startX = 0;
+    let startLeft = 0;
+    let dragging = false;
+    let lastX = 0;
+    let lastT = 0;
+    let velocity = 0;
+
+    const isInteractive = (el: EventTarget | null): boolean =>
+      el instanceof Element &&
+      Boolean(el.closest('button, a, [role="button"], input, select, textarea, label'));
+
+    const down = (e: PointerEvent) => {
+      if (isInteractive(e.target)) return;
+
+      dragging = true;
+      startX = e.clientX;
+      startLeft = vp.scrollLeft;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+      track.setPointerCapture(e.pointerId);
+      (track.style as CSSStyleDeclaration).cursor = 'grabbing';
+      cancelAnim();
+    };
+
+    const move = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      vp.scrollLeft = startLeft - dx;
+
+      const dt = e.timeStamp - lastT || 1;
+      velocity = (e.clientX - lastX) / dt;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+    };
+
+    const up = () => {
+      if (!dragging) return;
+      dragging = false;
+      track.style.removeProperty('cursor');
+
+      const positions = getPagePositions();
+      let curr = 0;
+      let best = Number.POSITIVE_INFINITY;
+      positions.forEach((pos, i) => {
+        const d = Math.abs(vp.scrollLeft - pos);
+        if (d < best) {
+          best = d;
+          curr = i;
+        }
+      });
+
+      const threshold = 0.25;
+      const target =
+        velocity > threshold ? curr - 1 : velocity < -threshold ? curr + 1 : curr;
+      goTo(target);
+    };
+
+    track.addEventListener('pointerdown', down, { passive: true });
+    track.addEventListener('pointermove', move);
+    track.addEventListener('pointerup', up);
+    track.addEventListener('pointercancel', up);
+
+    return () => {
+      track.removeEventListener('pointerdown', down);
+      track.removeEventListener('pointermove', move);
+      track.removeEventListener('pointerup', up);
+      track.removeEventListener('pointercancel', up);
+    };
+  }, [goTo, getPagePositions, cancelAnim]);
+
   /* стрелки с клавиатуры */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -263,11 +292,7 @@ export default function ServicePortfolio({
 
   /* ------------------------------ render -------------------------------- */
   return (
-    <section
-      id="portfolio"
-      className="oc-section section-soft"
-      style={accVars as CSSProperties}
-    >
+    <section id="portfolio" className="oc-section section-soft" style={accVars as CSSProperties}>
       <div className="mx-auto max-w-[1200px] px-4 md:px-6">
         <div className="mb-6 md:mb-8">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white/90">
@@ -364,12 +389,7 @@ export default function ServicePortfolio({
               style={{ gap: GAP }}
             >
               {items.map((it) => (
-                <Card
-                  key={String(it.id)}
-                  item={it}
-                  cardW={cardW}
-                  onOpen={setOpenedId}
-                />
+                <Card key={String(it.id)} item={it} cardW={cardW} onOpen={setOpenedId} />
               ))}
               <div style={{ flex: `0 0 ${BLEED}px` }} aria-hidden />
             </div>
@@ -378,7 +398,6 @@ export default function ServicePortfolio({
 
         {!controlsDisabled && <Dots pages={pages} page={page} goTo={goTo} />}
 
-        {/* страховочный спейсер, чтобы скролл точно доходил до конца */}
         <div aria-hidden style={{ height: 24 }} />
       </div>
 
@@ -435,7 +454,7 @@ function Card({
 }) {
   const [tilt, setTilt] = useState<{ rx: number; ry: number }>({ rx: 0, ry: 0 });
   const [hover, setHover] = useState<boolean>(false);
-  const [fallbackImg, setFallbackImg] = useState<boolean>(false);
+  const [imgFallback, setImgFallback] = useState(false);
 
   const onMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -444,7 +463,7 @@ function Card({
     setTilt({ rx: -(cy - 0.5) * 8, ry: (cx - 0.5) * 10 });
   };
 
-  const src = pickCover(item);
+  const src = getCoverSrc(item);
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
 
   // модалка ожидает number
@@ -485,7 +504,8 @@ function Card({
       <div className="pf-ring" />
       <div className="pf-cover relative">
         {src ? (
-          fallbackImg ? (
+          imgFallback ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={src}
               alt={item.title}
@@ -506,8 +526,10 @@ function Card({
               sizes="(min-width: 1024px) 33vw, 90vw"
               style={{ objectFit: fit }}
               className="pf-img"
-              unoptimized
-              onError={() => setFallbackImg(true)}
+              onError={() => {
+                console.warn('[ServicePortfolio cover] failed:', src);
+                setImgFallback(true);
+              }}
             />
           )
         ) : (
