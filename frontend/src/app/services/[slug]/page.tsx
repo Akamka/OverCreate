@@ -1,8 +1,14 @@
 // app/services/[slug]/page.tsx
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Script from 'next/script';
+
 import { SERVICES, type ServiceSlug, type ServiceConfig } from '@/lib/services.config';
 import { fetchPortfolioByService, type Portfolio } from '@/lib/api';
+import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
+import { toMediaUrl } from '@/lib/mediaUrl';
+
+import BackToHome from '@/components/ui/BackToHome';
 import ServiceHero from '@/components/services/ServiceHero';
 import ServicePricing from '@/components/services/ServicePricing';
 import ServiceProcess from '@/components/services/ServiceProcess';
@@ -10,12 +16,9 @@ import ServicePortfolio from '@/components/services/ServicePortfolio';
 import ServiceCTA from '@/components/services/ServiceCTA';
 import ServiceHighlights from '@/components/services/ServiceHighlights';
 import ServiceFAQ from '@/components/services/ServiceFAQ';
-import BackToHome from '@/components/ui/BackToHome';
-import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
-import Script from 'next/script';
-import { toMediaUrl } from '@/lib/mediaUrl';
 
-//* Если захотите вернуть ISR вместо полной динамики, раскомментируйте верхние строки и закомментируйте эти:
+// Используем ISR, чтобы страница переcобиралась и подтягивала новые работы.
+// Если хочешь абсолютную динамику — раскомментируй две строки ниже и закомментируй export const revalidate/fetchCache.
 // export const dynamic = 'force-dynamic';
 // export const fetchCache = 'default-no-store';
 export const revalidate = 30;
@@ -63,7 +66,7 @@ function strOrNull(v: unknown): string | null {
 
 function galleryStrings(g: unknown): string[] {
   if (!Array.isArray(g)) return [];
-  return g.filter((x): x is string => typeof x === 'string' && !!x.trim());
+  return g.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
 }
 
 /** Нормализуем в абсолютный URL (или undefined). */
@@ -72,7 +75,7 @@ function normalize(u?: string | null): string | undefined {
   return s ? toMediaUrl(s) : undefined;
 }
 
-/** Выбор обложки: cover → preview → thumbnail → первая картинка из gallery. */
+/** Выбор обложки: cover → preview → thumbnail → первая КАРТИНКА из gallery (видео игнорируем). */
 function pickCoverSrc(p: PortfolioWithMedia): string | undefined {
   const byField =
     normalize(p.cover_url) ??
@@ -81,8 +84,11 @@ function pickCoverSrc(p: PortfolioWithMedia): string | undefined {
 
   if (byField) return byField;
 
-  const firstFromGallery = galleryStrings(p.gallery).find(Boolean);
-  return normalize(firstFromGallery ?? null);
+  const firstImageFromGallery = galleryStrings(p.gallery).find(
+    (url) => !/\.(mp4|webm|mov|avi)$/i.test(url)
+  );
+
+  return normalize(firstImageFromGallery ?? null);
 }
 
 /* ============================== page ================================ */
@@ -99,8 +105,9 @@ export default async function ServicePage({ params }: PageProps) {
   // portfolio
   let apiItems: PortfolioWithMedia[] = [];
   try {
-    // короткий revalidate «на будущее», если вернёте ISR
-    const { data } = await fetchPortfolioByService(params.slug, 1, 9, { revalidate: 15 });
+    // Короткий revalidate держим и на fetch-уровне (если в helper поддерживается),
+    // чтобы новые работы попадали без долгой задержки.
+    const { data } = await fetchPortfolioByService(params.slug, 1, 9, { revalidate: 30 });
     apiItems = (data ?? []) as PortfolioWithMedia[];
   } catch {
     apiItems = [];
@@ -110,13 +117,13 @@ export default async function ServicePage({ params }: PageProps) {
   const items = apiItems.map((p) => ({
     id: p.id,
     title: p.title,
-    cover_url: pickCoverSrc(p), // ← БЕЗ /api/media/…/cover, берём реальный URL
+    cover_url: pickCoverSrc(p), // абсолютный URL (R2/CDN), без локальных /storage/ путей
     excerpt: p.excerpt ?? undefined,
     href: `/portfolio/${p.id}`,
   }));
 
   // JSON-LD: Service + FAQ (если есть)
-  const ldService = {
+  const ldService: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Service',
     name: cfg.title,
@@ -135,7 +142,7 @@ export default async function ServicePage({ params }: PageProps) {
       })) ?? undefined,
   };
 
-  const ldFAQ =
+  const ldFAQ: Record<string, unknown> | null =
     cfg.faq && cfg.faq.length
       ? {
           '@context': 'https://schema.org',

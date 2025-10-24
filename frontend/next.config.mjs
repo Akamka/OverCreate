@@ -2,43 +2,38 @@
 const isProd = process.env.NODE_ENV === 'production';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, '') ||
   'https://api.overcreate.co';
 
-const MEDIA_HOST_ENV =
-  process.env.NEXT_PUBLIC_MEDIA_HOST ||
-  process.env.AWS_BUCKET_HOST ||
-  '';
+const MEDIA_HOST =
+  process.env.NEXT_PUBLIC_MEDIA_HOST?.trim() || '';
 
+/** Собираем список разрешённых хостов для next/image */
 const remotePatterns = [
   { protocol: 'https', hostname: 'api.overcreate.co', pathname: '/**' },
   { protocol: 'http',  hostname: 'api.overcreate.co', pathname: '/**' },
 ];
 
-if (MEDIA_HOST_ENV) {
+// Разрешим медиахост (R2/CDN), если указан
+if (MEDIA_HOST) {
   remotePatterns.push(
-    { protocol: 'https', hostname: MEDIA_HOST_ENV, pathname: '/**' },
-    { protocol: 'http',  hostname: MEDIA_HOST_ENV, pathname: '/**' },
+    { protocol: 'https', hostname: MEDIA_HOST, pathname: '/**' },
+    { protocol: 'http',  hostname: MEDIA_HOST, pathname: '/**' },
   );
 }
 
+// Для локалки
 remotePatterns.push(
   { protocol: 'http', hostname: '127.0.0.1', port: '8080', pathname: '/**' },
   { protocol: 'http', hostname: 'localhost',  port: '8080', pathname: '/**' },
 );
 
-const API_ORIGIN = API_BASE.replace(/\/+$/, '');
-
 const nextConfig = {
   reactStrictMode: true,
 
   env: {
-    NEXT_PUBLIC_API_BASE_URL:
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      process.env.NEXT_PUBLIC_API_BASE ||
-      'https://api.overcreate.co',
-    NEXT_PUBLIC_MEDIA_HOST: MEDIA_HOST_ENV,
+    NEXT_PUBLIC_API_BASE_URL: API_BASE,
+    NEXT_PUBLIC_MEDIA_HOST: MEDIA_HOST,
   },
 
   async redirects() {
@@ -48,15 +43,15 @@ const nextConfig = {
     ];
   },
 
-  // ⬇️ ВСЕГДА проксируем /storage/* через наш домен, чтобы не было CORS
   async rewrites() {
+    // Проксируем /storage/* на API — актуально лишь если картинки всё ещё с api.overcreate.co.
     const rules = [
-      { source: '/storage/:path*', destination: `${API_ORIGIN}/storage/:path*` },
+      { source: '/storage/:path*', destination: `${API_BASE}/storage/:path*` },
     ];
     if (!isProd) {
       rules.push(
-        { source: '/api/:path*',          destination: `${API_ORIGIN}/api/:path*` },
-        { source: '/broadcasting/:path*', destination: `${API_ORIGIN}/broadcasting/:path*` },
+        { source: '/api/:path*',          destination: `${API_BASE}/api/:path*` },
+        { source: '/broadcasting/:path*', destination: `${API_BASE}/broadcasting/:path*` },
       );
     }
     return rules;

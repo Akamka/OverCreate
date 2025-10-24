@@ -7,15 +7,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
-
-// строгая валидация/нормализация
 use App\Http\Requests\StorePortfolioRequest;
 use App\Http\Requests\UpdatePortfolioRequest;
 
 class PortfolioController extends Controller
 {
     /**
-     * Нормализуем любую youtube/youtu.be ссылку до https://youtu.be/<id>
+     * Приводим YouTube-ссылки к https://youtu.be/<id>
      */
     private function normalizeYouTubeUrl(?string $url): ?string
     {
@@ -34,17 +32,18 @@ class PortfolioController extends Controller
     }
 
     /**
-     * Безопасно получить абсолютный URL для пути на диске.
-     * Даёт подсказку типу для Intelephense и fallback для дисков без url().
+     * Абсолютный публичный URL для пути на диске.
      */
     private function diskUrl(string $disk, string $path): string
     {
-        $fs = Storage::disk($disk);
         /** @var \Illuminate\Filesystem\FilesystemAdapter $fs */
+        $fs = Storage::disk($disk);
+
         if (method_exists($fs, 'url')) {
             return $fs->url($path);
         }
-        // Fallback: отдадим через публичный /storage (если настроен storage:link)
+
+        // Fallback для локального public-диска
         return URL::to('/storage/' . ltrim($path, '/'));
     }
 
@@ -90,6 +89,7 @@ class PortfolioController extends Controller
             $data['slug'] = Str::slug($data['title']) . '-' . Str::random(6);
         }
 
+        // === ОБЛАЧНЫЙ ДИСК ===
         $disk = config('filesystems.default');
 
         // ---- Видео (YouTube) ----
@@ -111,7 +111,6 @@ class PortfolioController extends Controller
         if (!$videoUrl) {
             $galleryUrls = [];
 
-            // файлы gallery_files[]
             if ($request->hasFile('gallery_files')) {
                 foreach ((array) $request->file('gallery_files') as $file) {
                     if ($file) {
@@ -121,7 +120,6 @@ class PortfolioController extends Controller
                 }
             }
 
-            // файлы gallery[]
             if ($request->hasFile('gallery')) {
                 foreach ((array) $request->file('gallery') as $file) {
                     if ($file) {
@@ -131,7 +129,6 @@ class PortfolioController extends Controller
                 }
             }
 
-            // URL-ы в теле
             if (!empty($data['gallery']) && is_array($data['gallery'])) {
                 $galleryUrls = array_values(array_unique(array_merge($galleryUrls, $data['gallery'])));
             }
@@ -159,6 +156,7 @@ class PortfolioController extends Controller
             $data['slug'] = Str::slug($data['title']) . '-' . Str::random(6);
         }
 
+        // === ОБЛАЧНЫЙ ДИСК ===
         $disk = config('filesystems.default');
 
         // ---- Видео (YouTube) ----
