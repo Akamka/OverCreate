@@ -12,12 +12,13 @@ import Image from 'next/image';
 import PortfolioModal from './PortfolioModal';
 import { toMediaUrl } from '@/lib/mediaUrl';
 
-/* ---------- types ---------- */
+/* ======================== types ======================== */
 export type RGB = [number, number, number];
 
 export type ServicePortfolioItem = {
   id: number | string;
   title: string;
+  /** Абсолютный или относительный урл обложки (если приходит с API). */
   cover_url?: string | null;
   coverFit?: 'cover' | 'contain';
   excerpt?: string | null;
@@ -35,7 +36,31 @@ type Props = {
 type AccVars = Record<'--acc1' | '--acc2', string>;
 type BleedVars = CSSProperties & { ['--pf-bleed']?: string };
 
-/* ====================================================================== */
+/* ======================== helpers ====================== */
+
+/** База публичного API (без трейлинга). Берём из NEXT_PUBLIC_API_BASE_URL, как в next.config.mjs */
+const API_BASE =
+  (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.overcreate.co').replace(
+    /\/+$/,
+    ''
+  );
+
+/** Строим src для превью карточки. 1) cover_url → toMediaUrl, 2) резерв — публичный endpoint /api/media/portfolio/:id/cover */
+function getCoverSrc(item: ServicePortfolioItem): string | null {
+  if (item.cover_url && item.cover_url.trim()) {
+    return toMediaUrl(item.cover_url);
+  }
+  // резерв — наш стабильный публичный роут на API
+  const id =
+    typeof item.id === 'number'
+      ? String(item.id)
+      : typeof item.id === 'string'
+      ? item.id
+      : null;
+  return id ? `${API_BASE}/api/media/portfolio/${encodeURIComponent(id)}/cover` : null;
+}
+
+/* ======================== component ==================== */
 
 export default function ServicePortfolio({
   title = 'Portfolio',
@@ -67,7 +92,7 @@ export default function ServicePortfolio({
 
   const bleedVars = useMemo<BleedVars>(() => ({ ['--pf-bleed']: `${BLEED}px` }), []);
 
-  /* ======================== Smooth scroll helpers ======================= */
+  /* ======================== Smooth scroll ======================= */
   const supportsNativeSmooth = useMemo<boolean>(() => {
     try {
       const el = document.createElement('div');
@@ -125,7 +150,7 @@ export default function ServicePortfolio({
     },
     [supportsNativeSmooth, rAFScrollTo, cancelAnim]
   );
-  /* ==================================================================== */
+  /* ================================================================ */
 
   const getVpPadLeft = (): number => {
     const vp = viewportRef.current;
@@ -285,7 +310,11 @@ export default function ServicePortfolio({
 
   /* ------------------------------ render -------------------------------- */
   return (
-    <section id="portfolio"  className="oc-section section-soft" style={accVars as CSSProperties}>
+    <section
+      id="portfolio"
+      className="oc-section section-soft"
+      style={accVars as CSSProperties}
+    >
       <div className="mx-auto max-w-[1200px] px-4 md:px-6">
         <div className="mb-6 md:mb-8">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white/90">
@@ -367,8 +396,6 @@ export default function ServicePortfolio({
           <div
             ref={viewportRef}
             className="no-scrollbar pf-viewport"
-            /* Раньше было data-lenis-prevent — блокировало wheel вертикальный.
-               Оставляем только тач: горизонтальные свайпы работают, колесо — скроллит страницу. */
             data-lenis-prevent-touch=""
             style={{
               paddingLeft: 'var(--pf-bleed)',
@@ -384,7 +411,12 @@ export default function ServicePortfolio({
               style={{ gap: GAP }}
             >
               {items.map((it) => (
-                <Card key={String(it.id)} item={it} cardW={cardW} onOpen={setOpenedId} />
+                <Card
+                  key={String(it.id)}
+                  item={it}
+                  cardW={cardW}
+                  onOpen={setOpenedId}
+                />
               ))}
               <div style={{ flex: `0 0 ${BLEED}px` }} aria-hidden />
             </div>
@@ -405,12 +437,11 @@ export default function ServicePortfolio({
           accTo={accentTo}
         />
       )}
-
     </section>
   );
 }
 
-/* --------------------------- Вспомогательное --------------------------- */
+/* --------------------------- Dots --------------------------- */
 
 function Dots({
   pages,
@@ -440,7 +471,7 @@ function Dots({
   );
 }
 
-/* ------------------------------ Card ----------------------------------- */
+/* ------------------------------ Card ------------------------------ */
 
 function Card({
   item,
@@ -461,10 +492,10 @@ function Card({
     setTilt({ rx: -(cy - 0.5) * 8, ry: (cx - 0.5) * 10 });
   };
 
-  const cover = item.cover_url ? toMediaUrl(item.cover_url) : undefined;
+  const src = getCoverSrc(item);
   const fit: 'cover' | 'contain' = item.coverFit ?? 'contain';
 
-  // конвертируем id в число для модалки (ожидает number)
+  // модалка ожидает number
   const numericId: number | null =
     typeof item.id === 'number'
       ? item.id
@@ -501,14 +532,16 @@ function Card({
     >
       <div className="pf-ring" />
       <div className="pf-cover relative">
-        {cover ? (
+        {src ? (
           <Image
-            src={cover}
+            src={src}
             alt={item.title}
             fill
             sizes="(min-width: 1024px) 33vw, 90vw"
             style={{ objectFit: fit }}
             className="pf-img"
+            /* если хочешь использовать оптимизацию next/image — можно убрать unoptimized,
+               ты уже настроил remotePatterns в next.config.mjs */
             unoptimized
           />
         ) : (
@@ -524,7 +557,6 @@ function Card({
             {item.excerpt && <div className="pf-sub">{item.excerpt}</div>}
           </div>
 
-          {/* View открывает модалку */}
           <button
             type="button"
             onClick={handleOpen}
