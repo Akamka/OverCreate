@@ -38,26 +38,32 @@ type BleedVars = CSSProperties & { ['--pf-bleed']?: string };
 
 /* ======================== helpers ====================== */
 
-/** База публичного API (без трейлинга). Берём из NEXT_PUBLIC_API_BASE_URL, как в next.config.mjs */
-const API_BASE =
-  (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.overcreate.co').replace(
-    /\/+$/,
-    ''
-  );
+/** База публичного API (без трейлинга и без завершающего /api). */
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.overcreate.co'
+)
+  .replace(/\/+$/, '')
+  .replace(/\/api$/i, '');
 
-/** Строим src для превью карточки. 1) cover_url → toMediaUrl, 2) резерв — публичный endpoint /api/media/portfolio/:id/cover */
+/** Получаем src для превью карточки.
+ * 1) Если есть cover_url → нормализуем через toMediaUrl
+ * 2) Иначе — стабильный публичный эндпоинт на API: /api/media/portfolio/:id/cover
+ */
 function getCoverSrc(item: ServicePortfolioItem): string | null {
   if (item.cover_url && item.cover_url.trim()) {
-    return toMediaUrl(item.cover_url);
+    // toMediaUrl может вернуть undefined → приводим к null для строгой типизации
+    return toMediaUrl(item.cover_url) ?? null;
   }
-  // резерв — наш стабильный публичный роут на API
   const id =
     typeof item.id === 'number'
       ? String(item.id)
       : typeof item.id === 'string'
       ? item.id
       : null;
-  return id ? `${API_BASE}/api/media/portfolio/${encodeURIComponent(id)}/cover` : null;
+
+  return id
+    ? `${API_BASE}/api/media/portfolio/${encodeURIComponent(id)}/cover`
+    : null;
 }
 
 /* ======================== component ==================== */
@@ -540,8 +546,7 @@ function Card({
             sizes="(min-width: 1024px) 33vw, 90vw"
             style={{ objectFit: fit }}
             className="pf-img"
-            /* если хочешь использовать оптимизацию next/image — можно убрать unoptimized,
-               ты уже настроил remotePatterns в next.config.mjs */
+            /* можно убрать unoptimized, если хотите полноценную оптимизацию */
             unoptimized
           />
         ) : (

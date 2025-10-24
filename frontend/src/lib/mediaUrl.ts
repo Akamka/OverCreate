@@ -1,12 +1,25 @@
-// Next.js: берём base URL из NEXT_PUBLIC_*
-export const API_BASE =
-  (process.env.NEXT_PUBLIC_API_BASE_URL?.trim()) ||
-  (process.env.NEXT_PUBLIC_API_BASE?.trim()) ||
-  "https://api.overcreate.co";
+// src/lib/mediaUrl.ts
+/**
+ * Делает абсолютный URL для картинки из API:
+ * - оставляет https://... как есть
+ * - склеивает относительные пути с базой API
+ * - нормализует BASE (без /api и без хвостовых слэшей)
+ */
+const RAW_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE ||
+  'https://api.overcreate.co';
 
-// Делает абсолютным любой относительный url из бэка (/storage/...)
-export function toMediaUrl(u?: string | null): string {
-  if (!u) return "";
+// убираем хвост /api, чтобы BASE указывал на корень домена (нужно для /storage и /api/media)
+const BASE = RAW_BASE.replace(/\/+$/, '').replace(/\/api$/i, '');
+
+export function toMediaUrl(u?: string | null): string | undefined {
+  if (!u) return undefined;
+  // уже абсолютный URL
   if (/^https?:\/\//i.test(u)) return u;
-  return `${API_BASE}${u.startsWith("/") ? "" : "/"}${u}`;
+
+  // нормализуем относительные варианты
+  if (u.startsWith('//')) return `https:${u}`;
+  if (u.startsWith('/'))  return `${BASE}${u}`;
+  return `${BASE}/${u}`;
 }
