@@ -15,9 +15,9 @@ import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
 import Script from 'next/script';
 import { toMediaUrl } from '@/lib/mediaUrl';
 
+//* Если захотите вернуть ISR вместо полной динамики, раскомментируйте верхние строки и закомментируйте эти:
 // export const dynamic = 'force-dynamic';
 // export const fetchCache = 'default-no-store';
-//* Если захотите вернуть ISR вместо полной динамики, закомментируйте строки выше и раскомментируйте:
 export const revalidate = 30;
 export const fetchCache = 'default-cache';
 
@@ -47,10 +47,45 @@ export function generateMetadata({ params }: PageProps): Metadata {
   };
 }
 
-// Унифицируем сборку абсолютных URL к медиа
-function normalizeCoverUrl(u?: string | null): string | undefined {
-  return u ? toMediaUrl(u) : undefined;
+/* ====================== helpers (типобезопасные) ====================== */
+
+// То, что реально приходит от API: у Portfolio могут быть медиа-поля.
+type PortfolioWithMedia = Portfolio & {
+  cover_url?: string | null;
+  preview_url?: string | null;
+  thumbnail_url?: string | null;
+  gallery?: unknown;
+};
+
+function strOrNull(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() ? v : null;
 }
+
+function galleryStrings(g: unknown): string[] {
+  if (!Array.isArray(g)) return [];
+  return g.filter((x): x is string => typeof x === 'string' && !!x.trim());
+}
+
+/** Нормализуем в абсолютный URL (или undefined). */
+function normalize(u?: string | null): string | undefined {
+  const s = strOrNull(u);
+  return s ? toMediaUrl(s) : undefined;
+}
+
+/** Выбор обложки: cover → preview → thumbnail → первая картинка из gallery. */
+function pickCoverSrc(p: PortfolioWithMedia): string | undefined {
+  const byField =
+    normalize(p.cover_url) ??
+    normalize(p.preview_url) ??
+    normalize(p.thumbnail_url);
+
+  if (byField) return byField;
+
+  const firstFromGallery = galleryStrings(p.gallery).find(Boolean);
+  return normalize(firstFromGallery ?? null);
+}
+
+/* ============================== page ================================ */
 
 export default async function ServicePage({ params }: PageProps) {
   const cfg: ServiceConfig | undefined = SERVICES[params.slug];
@@ -62,19 +97,20 @@ export default async function ServicePage({ params }: PageProps) {
   };
 
   // portfolio
-  let apiItems: Portfolio[] = [];
+  let apiItems: PortfolioWithMedia[] = [];
   try {
     // короткий revalidate «на будущее», если вернёте ISR
     const { data } = await fetchPortfolioByService(params.slug, 1, 9, { revalidate: 15 });
-    apiItems = data ?? [];
+    apiItems = (data ?? []) as PortfolioWithMedia[];
   } catch {
     apiItems = [];
   }
 
+  // Мэппим в формат, который ждёт карусель
   const items = apiItems.map((p) => ({
     id: p.id,
     title: p.title,
-    cover_url: `/api/media/portfolio/${p.id}/cover`,
+    cover_url: pickCoverSrc(p), // ← БЕЗ /api/media/…/cover, берём реальный URL
     excerpt: p.excerpt ?? undefined,
     href: `/portfolio/${p.id}`,
   }));
