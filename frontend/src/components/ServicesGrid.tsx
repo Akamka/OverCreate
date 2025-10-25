@@ -44,7 +44,7 @@ const items = [
   {
     slug:'dev',
     title:'Development',
-    desc:'Next.js, Laravel, интеграции',
+    desc:'Next.js, Laravel, Integrations',
     // amber 500 — #F59E0B (тёплый оранжевый)
     acc1: rgb(245, 158, 11), acc2: rgb(245, 158, 11),
     icon: (

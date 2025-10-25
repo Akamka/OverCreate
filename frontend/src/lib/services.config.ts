@@ -50,7 +50,7 @@ export type ServiceConfig = {
 };
 
 export const SERVICES = {
-  /** Violet theme (already used) */
+  //!/** Violet theme (already used) */
   motion: {
     title: 'Motion Design',
     desc: 'Short-form reels, 2D/3D animations and product motion for ads & socials.',
@@ -70,22 +70,24 @@ export const SERVICES = {
     pricing: [
       {
         name: 'Start',
-        price: 'from $490',
+        price: 'from $150',
+        note:'Perfect for social media, logo or intro animation.',
         period: 'per project',
-        features: ['1–2 concepts', 'Basic motion', '5–7 days'],
+        features: ['1–2 concepts', 'Basic motion', 'Basic 2D motion', '5–7 days'],
         ctaHref: '#contact',
       },
       {
         name: 'Pro',
-        price: 'from $1200',
+        price: 'from $250',
         period: 'per project',
-        features: ['3–4 concepts', 'Design system', 'Interactive elements', '10–14 days'],
+        features: ['3–4 concepts', 'Advanced 2D motion & transitions', 'Interactive elements','Sound design included', '10–14 days'],
         popular: true,
         note: 'Best for SMB and product promo',
         ctaHref: '#contact',
       },
       {
         name: 'Enterprise',
+        note: 'For brands and complex projects.',
         price: 'on request',
         features: ['R&D', 'Extended design system', 'Complex animation', 'Handoff & support'],
         ctaHref: '#contact',
@@ -117,7 +119,7 @@ export const SERVICES = {
     ],
   } satisfies ServiceConfig,
 
-  /** Green theme */
+  //!/** Green theme */
   graphic: {
     title: 'Graphic Design',
     desc: 'Branding, posters and print assets with consistent visual systems.',
@@ -137,23 +139,24 @@ export const SERVICES = {
     pricing: [
       {
         name: 'Logo & Basics',
-        price: 'from $450',
+        price: 'from $120',
         period: 'per project',
+        note: 'Perfect for startups and small businesses.',
         features: ['Logo + colors + typography', 'Simple brand usage', '2–3 days'],
         ctaHref: '#contact',
       },
       {
         name: 'Identity',
-        price: 'from $900',
+        price: 'from $450',
         period: 'per project',
-        features: ['Logo system', 'Stationery kit', 'Social templates', '4–7 days'],
+        features: ['Logo system', 'Stationery kit', 'Social media templates', '4–7 days'],
         popular: true,
         ctaHref: '#contact',
       },
       {
         name: 'Campaign',
         price: 'on request',
-        features: ['Posters & OOH', 'Key visuals', 'Print production support'],
+        features: ['Posters','OOH (out-of-home) design support', 'Key visuals', 'Print & digital materials'],
         ctaHref: '#contact',
       },
     ],
@@ -181,7 +184,7 @@ export const SERVICES = {
     ],
   } satisfies ServiceConfig,
 
-  /** Blue theme */
+  //!/** Blue theme */
   web: {
     title: 'Web Design',
     desc: 'UI/UX for landing pages and websites with clean systems and motion.',
@@ -201,23 +204,23 @@ export const SERVICES = {
     pricing: [
       {
         name: 'Landing',
-        price: 'from $800',
+        price: 'from $500',
         period: 'per project',
-        features: ['Wireframes', 'UI kit', 'Responsive screens', 'Basic motion'],
+        features: ['Wireframes', 'UI kit & responsive screens', 'Responsive screens', 'Basic motion','5–7 days'],
         ctaHref: '#contact',
       },
       {
         name: 'Website',
-        price: 'from $1800',
+        price: 'from $1200',
         period: 'per project',
-        features: ['IA & flows', 'Design system', 'Animations', 'Handoff'],
+        features: ['IA & user flows', 'Design system & components', 'Animation & transitions', 'Handoff for development','10–14 days'],
         popular: true,
         ctaHref: '#contact',
       },
       {
         name: 'Web App',
         price: 'on request',
-        features: ['Complex UX', 'Component library', 'Docs & tokens'],
+        features: ['Complex UX & dashboards', 'Component library', 'Docs & tokens', 'Tokens & documentation','Multi-platform layouts','Support & iteration'],
         ctaHref: '#contact',
       },
     ],
@@ -245,7 +248,7 @@ export const SERVICES = {
     ],
   } satisfies ServiceConfig,
 
-  /** Orange theme */
+  //!/** Orange theme */
   dev: {
     title: 'Development',
     desc: 'Next.js, Laravel and integrations — production-ready delivery.',
@@ -264,24 +267,24 @@ export const SERVICES = {
 
     pricing: [
       {
-        name: 'MVP',
-        price: 'from $1500',
+        name: 'Landing Dev',
+        price: 'from $600',
         period: 'per project',
-        features: ['Next.js app', 'Tailwind/Design system', 'Auth & forms'],
+        features: ['Next.js / React setup', 'Responsive layout','CMS or static export','Basic animations', 'Hosting & deployment'],
         ctaHref: '#contact',
       },
       {
-        name: 'Full Build',
-        price: 'from $3500',
+        name: 'Full Website',
+        price: 'from $1800',
         period: 'per project',
-        features: ['Custom API (Laravel)', 'Database & migrations', 'Deploy & CI'],
+        features: ['Next.js or Laravel stack', 'Database & migrations', 'Database setup (MySQL / PostgreSQL)','REST or GraphQL API, SEO & performance optimization'],
         popular: true,
         ctaHref: '#contact',
       },
       {
         name: 'Support',
         price: 'on request',
-        features: ['Maintenance', 'New features', 'Monitoring'],
+        features: ['Full-stack app architecture', 'Laravel API & backend logic', 'Database design & migrations','Integrations (CRM, payments, analytics)', 'Admin panels & dashboards','Ongoing maintenance & support'],
         ctaHref: '#contact',
       },
     ],
@@ -309,7 +312,7 @@ export const SERVICES = {
     ],
   } satisfies ServiceConfig,
 
-  /** Pink/Red theme */
+  //!/** Pink/Red theme */
   printing: {
     title: 'Digital Printing',
     desc: 'Business cards, posters and outdoor ads with pixel-perfect prepress.',
@@ -329,23 +332,24 @@ export const SERVICES = {
     pricing: [
       {
         name: 'Business Cards',
-        price: 'from $120',
+        price: 'from $100',
         period: 'per set',
-        features: ['Design + prepress', 'Paper & finish advice', '2–3 days'],
+        features: ['Design + prepress', 'Paper & finish advice', '2–3 days','Print-ready files','2–3 days'],
         ctaHref: '#contact',
       },
       {
         name: 'Posters',
-        price: 'from $220',
+        price: 'from $150',
         period: 'per project',
-        features: ['Key visual', 'Sizes & layouts', 'Color profiles'],
+        features: ['Key visual & layout design', 'Multiple sizes & formats', 'Color profiles (CMYK / RGB)','Print optimization','4–6 days'],
         popular: true,
         ctaHref: '#contact',
       },
       {
-        name: 'Outdoor',
+        name: 'Outdoor Ads',
+        period: 'per project',
         price: 'on request',
-        features: ['Large format', 'Technical supervision', 'Delivery specs'],
+        features: ['Large-format design (banners, billboards, citylights)', 'Technical supervision for print production', 'Adaptations for different formats','Delivery & specs coordination'],
         ctaHref: '#contact',
       },
     ],
