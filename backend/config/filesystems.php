@@ -4,10 +4,10 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Filesystem Disk
+    | Диск по умолчанию
     |--------------------------------------------------------------------------
     |
-    | В продакшене ставим через .env: FILESYSTEM_DISK=r2
+    | В проде задаём через .env: FILESYSTEM_DISK=r2
     |
     */
 
@@ -15,72 +15,91 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Filesystem Disks
+    | Облачный диск (опционально)
     |--------------------------------------------------------------------------
-    |
-    | Диски: local/private, public (локальный), s3 (S3-совместимый), r2 (алиас s3).
-    |
+    */
+
+    'cloud' => env('FILESYSTEM_CLOUD', null),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Диски
+    |--------------------------------------------------------------------------
     */
 
     'disks' => [
 
-        // Приватное локальное хранилище
+        // Приватное локальное хранилище (не раздаётся напрямую)
         'local' => [
-            'driver'   => 'local',
-            'root'     => storage_path('app/private'),
-            'throw'    => false,
+            'driver' => 'local',
+            'root'   => storage_path('app/private'),
+            'throw'  => false,
+            'report' => false,
         ],
 
-        // Публичное локальное хранилище (для dev)
+        // Публичное локальное хранилище (отдаётся через /public/storage)
         'public' => [
             'driver'     => 'local',
             'root'       => storage_path('app/public'),
             'url'        => rtrim(env('APP_URL', ''), '/') . '/storage',
             'visibility' => 'public',
             'throw'      => false,
+            'report'     => false,
         ],
 
-        // Универсальный S3-диск (AWS S3 / Cloudflare R2 / MinIO)
+        // Классический AWS S3 (или совместимые сервисы, но не R2)
         's3' => [
             'driver'                  => 's3',
             'key'                     => env('AWS_ACCESS_KEY_ID'),
             'secret'                  => env('AWS_SECRET_ACCESS_KEY'),
-            'region'                  => env('AWS_DEFAULT_REGION', 'auto'),
+            'region'                  => env('AWS_DEFAULT_REGION', 'us-east-1'),
             'bucket'                  => env('AWS_BUCKET'),
-            // Публичная база-URL (CDN/статический домен для объектов)
-            'url'                     => env('AWS_URL'),
-            // Для R2/MinIO обязателен кастомный endpoint
+            // Публичный CDN/домен (если используется)
+            'url'                     => env('AWS_URL', env('AWS_CDN_URL')),
+            // Endpoint для S3-совместимых решений (не обязателен для «настоящего» AWS S3)
             'endpoint'                => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', true), FILTER_VALIDATE_BOOLEAN),
+            'use_path_style_endpoint' => (bool) env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'visibility'              => 'public',
-            'throw'                   => true,
+            'throw'                   => false,
+            'report'                  => false,
         ],
 
-        // Алиас для R2 — тот же драйвер s3
+        // Cloudflare R2 (через s3-драйвер)
         'r2' => [
             'driver'                  => 's3',
             'key'                     => env('AWS_ACCESS_KEY_ID'),
             'secret'                  => env('AWS_SECRET_ACCESS_KEY'),
             'region'                  => env('AWS_DEFAULT_REGION', 'auto'),
             'bucket'                  => env('AWS_BUCKET'),
-            'url'                     => env('AWS_URL'),
+
+            /**
+             * ВАЖНО: публичный URL ДОЛЖЕН содержать имя бакета в конце!
+             * Пример (r2.dev): https://pub-XXXXXXXXXXXX.r2.dev/overcreate-media
+             * Или ваш CDN-домен, тоже с /<bucket>.
+             */
+            'url'                     => env('MEDIA_PUBLIC_URL'),
+
+            // API endpoint для SDK (без имени бакета!)
+            // Пример: https://<accountid>.r2.cloudflarestorage.com
             'endpoint'                => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', true), FILTER_VALIDATE_BOOLEAN),
+
+            // Для R2 обязательно path-style
+            'use_path_style_endpoint' => (bool) env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+
             'visibility'              => 'public',
-            'throw'                   => true,
+            'throw'                   => false,
+            'report'                  => false,
         ],
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Symbolic Links
+    | Символические ссылки (для локальной разработки)
     |--------------------------------------------------------------------------
-    |
-    | Для локалки: public/storage → storage/app/public
-    |
     */
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
     ],
+
 ];
