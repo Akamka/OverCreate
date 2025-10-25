@@ -44,7 +44,7 @@ const nextConfig = {
   },
 
   async rewrites() {
-    // Проксируем /storage/* на API — актуально лишь если картинки всё ещё с api.overcreate.co.
+    // Проксируем /storage/* на API
     const rules = [
       { source: '/storage/:path*', destination: `${API_BASE}/storage/:path*` },
     ];
@@ -55,6 +55,19 @@ const nextConfig = {
       );
     }
     return rules;
+  },
+
+  // ⬇️ Явно отдадим корректный тип для favicon.ico (мы его переписываем на PNG)
+  async headers() {
+    return [
+      {
+        source: '/favicon.ico',
+        headers: [
+          { key: 'Content-Type', value: 'image/png' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+    ];
   },
 
   images: {

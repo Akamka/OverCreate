@@ -1,4 +1,5 @@
-import type { Metadata } from 'next';
+// app/layout.tsx
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 
@@ -8,9 +9,18 @@ import RouteTransitions from '@/components/transitions/RouteTransitions';
 import { Inter } from 'next/font/google';
 import { SITE_URL, alternatesFor, jsonLd } from '@/lib/seo';
 
-import CookieBanner from "@/components/CookieBanner"
+import CookieBanner from '@/components/CookieBanner';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'], display: 'swap' });
+
+/** ⬇️ В Next 15 viewport вынесен отдельно */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#0A0A0F',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -20,17 +30,24 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', siteName: 'OverCreate', url: SITE_URL },
   twitter: { card: 'summary_large_image' },
   applicationName: 'OverCreate',
-  themeColor: '#0A0A0F',
-  viewport: { width: 'device-width', initialScale: 1, maximumScale: 5, viewportFit: 'cover' },
+  /** ⛔️ НЕ указываем тут viewport/themeColor — они вынесены выше */
+
+  /** Иконки — только реальные файлы из /public */
   icons: {
     icon: [
-      { url: '/favicon.ico' },
-      { url: '/icon-192.png', sizes: '192x192' },
-      { url: '/icon-512.png', sizes: '512x512' },
+      { url: '/favicon-16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon-512.png', sizes: '512x512', type: 'image/png' },
+      // /favicon.ico лежит в public и будет запрошен браузером сам по себе,
+      // добавлять его сюда не обязательно (иногда даёт 500 в dev).
     ],
-    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    other: [{ rel: 'mask-icon', url: '/transp-logo.png', color: '#0A0A0F' }],
   },
-  manifest: '/manifest.webmanifest',
+
+  /** Один манифест — тот, что ниже */
+  manifest: '/site.webmanifest',
   robots: { index: true, follow: true },
 };
 
@@ -40,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     '@type': 'Organization',
     name: 'OverCreate',
     url: SITE_URL,
-    logo: `${SITE_URL}/transp-logo.svg`,
+    logo: `${SITE_URL}/transp-logo.png`,
   };
 
   const website = {
@@ -58,7 +75,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RouteAwareSmoothScroll />
         <RouteTransitions>{children}</RouteTransitions>
 
-        {/* ✅ Cookie Banner: добавляем в самый низ, чтобы показывался на всех страницах */}
         <CookieBanner />
 
         {/* Structured Data */}
