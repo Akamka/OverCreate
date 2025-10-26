@@ -184,43 +184,50 @@ export default function PortfolioModal({
     };
   }, [id, accFrom, accTo]);
 
-  /* ===== ПОЛНАЯ блокировка скролла + Lenis stop ===== */
-  useEffect(() => {
-    if (!id) return;
+  /* ===== блокировка скролла + Lenis stop ===== */
+useEffect(() => {
+  if (!id) return;
 
-    const root = document.documentElement;
-    const body = document.body;
+  const root = document.documentElement;
+  const body = document.body;
 
-    root.classList.add('oc-no-vert-scroll');
-    body.classList.add('oc-no-vert-scroll');
-    root.setAttribute('data-lenis-lock', '1');
+  root.classList.add('oc-no-vert-scroll');
+  body.classList.add('oc-no-vert-scroll');
+  root.setAttribute('data-lenis-lock', '1');
 
-    const lenis = getLenisFromWindow();
-    const wasRunning = !!lenis && !lenis.isStopped;
-    lenis?.stop();
+  const lenis = getLenisFromWindow();
+  const wasRunning = !!lenis && !lenis.isStopped;
+  lenis?.stop();
 
-    const prevent = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-    window.addEventListener('wheel', prevent, { passive: false, capture: true });
-    window.addEventListener('touchmove', prevent, { passive: false, capture: true });
+  // ✅ строго типизированный обработчик
+  const prevent: EventListener = (e) => {
+    const t = e.target as HTMLElement | null;
+    if (t && t.closest('video, iframe, button, a, input, textarea, [data-no-swipe]')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
-    dialogRef.current?.focus();
+  // ✅ общие опции, совместимые и с add*, и с remove*
+  const opts: AddEventListenerOptions & EventListenerOptions = {
+    passive: false,
+    capture: true,
+  };
 
-    return () => {
-      window.removeEventListener('wheel', prevent, {
-        capture: true,
-      } as EventListenerOptions);
-      window.removeEventListener('touchmove', prevent, {
-        capture: true,
-      } as EventListenerOptions);
-      root.classList.remove('oc-no-vert-scroll');
-      body.classList.remove('oc-no-vert-scroll');
-      root.removeAttribute('data-lenis-lock');
-      if (wasRunning) lenis?.start();
-    };
-  }, [id]);
+  window.addEventListener('wheel', prevent, opts);
+  window.addEventListener('touchmove', prevent, opts);
+
+  dialogRef.current?.focus();
+
+  return () => {
+    window.removeEventListener('wheel', prevent, opts);
+    window.removeEventListener('touchmove', prevent, opts);
+    root.classList.remove('oc-no-vert-scroll');
+    body.classList.remove('oc-no-vert-scroll');
+    root.removeAttribute('data-lenis-lock');
+    if (wasRunning) lenis?.start();
+  };
+}, [id]);
+
 
   /* ===== esc / arrows ===== */
   useEffect(() => {
