@@ -357,26 +357,29 @@ export default function PortfolioModal({
         {/* body */}
         <div className="flex-1 overflow-auto">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr,360px] gap-4 sm:gap-5 p-4 sm:p-6">
-            {/* viewer */}
-            <div className="relative">
-              <div
-                ref={trackRef}
-                className="group relative rounded-xl overflow-hidden border border-white/10 bg-black"
-              >
-                <div className="relative w-full" style={{ height: 'min(68vh, 700px)' }}>
+
+          {/* viewer */}
+          <div className="relative">
+            <div className="group relative rounded-xl overflow-hidden border border-white/10 bg-black">
+              {/* трек для свайпа оставляем на внешнем блоке */}
+              <div ref={trackRef}>
+                {/* Контейнер, который центрирует контент и даёт минимальную высоту */}
+                <div
+                  className="grid place-items-center w-full"
+                  style={{ minHeight: 'min(68vh, 700px)' }}
+                >
                   {err ? (
-                    <div className="absolute inset-0 grid place-items-center text-red-300 text-sm">
-                      {err}
-                    </div>
+                    <div className="text-red-300 text-sm"> {err} </div>
                   ) : !item || total === 0 ? (
-                    <div className="absolute inset-0 grid place-items-center text-white/60 text-sm">
-                      Loading…
-                    </div>
+                    <div className="text-white/60 text-sm">Loading…</div>
                   ) : (
                     <MediaSlide key={media[idx].url} m={media[idx]} />
                   )}
                 </div>
               </div>
+            </div>
+
+
 
               {/* thumbs */}
               {total > 1 && (
@@ -450,55 +453,106 @@ export default function PortfolioModal({
 
 /* --------- один слайд с плавным появлением --------- */
 function MediaSlide({ m }: { m: Media }) {
-  const [loaded, setLoaded] = useState(m.type !== 'image');
-  useEffect(() => setLoaded(m.type !== 'image'), [m]);
+  // image: грузим мягко
+  const [imgLoaded, setImgLoaded] = useState(m.type !== 'image');
+
+  // video: ручное управление
+  const vRef = useRef<HTMLVideoElement | null>(null);
+  const [vPlaying, setVPlaying] = useState(false);
+
+  // youtube: запускаем автоплей после первого клика
+  const [ytAutoplay, setYtAutoplay] = useState(false);
+
+  useEffect(() => {
+    setImgLoaded(m.type !== 'image');
+    setVPlaying(false);
+    setYtAutoplay(false);
+    if (vRef.current) {
+      vRef.current.pause();
+      vRef.current.currentTime = 0;
+      vRef.current.controls = false;
+    }
+  }, [m]);
 
   if (m.type === 'youtube') {
+    const src = ytAutoplay
+      ? `${m.url}${m.url.includes('?') ? '&' : '?'}autoplay=1&mute=0`
+      : m.url;
+
     return (
-      <div className="absolute inset-0">
+      <div className="relative w-full">
         <iframe
-          src={m.url}
+          src={src}
           title="YouTube"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+          className="block w-full"
+          style={{ height: 'min(68vh, 700px)', border: 0 }}
         />
+        {!ytAutoplay && (
+          <button
+            aria-label="Play"
+            onClick={() => setYtAutoplay(true)}
+            className="absolute inset-0"
+          />
+        )}
       </div>
     );
   }
 
   if (m.type === 'video') {
     return (
-      <video
-        src={m.url}
-        className="absolute inset-0 w-full h-full object-contain bg-black"
-        controls
-        playsInline
-      />
+      <div className="relative">
+        <video
+          ref={vRef}
+          src={m.url}
+          className="block max-w-full max-h-[min(68vh,700px)] w-auto h-auto bg-black"
+          playsInline
+          // показываем контролы только после запуска
+          controls={vPlaying}
+          onPlay={() => setVPlaying(true)}
+        />
+        {!vPlaying && (
+          <button
+            aria-label="Play"
+            onClick={() => {
+              if (!vRef.current) return;
+              // для автоплея в некоторых браузерах требуется mute = true на первый кадр
+              try { vRef.current.muted = true; } catch {}
+              vRef.current.play().catch(() => {});
+              // вернём звук и покажем контролы
+              setTimeout(() => { if (vRef.current) vRef.current.muted = false; }, 100);
+            }}
+            className="absolute inset-0"
+          />
+        )}
+      </div>
     );
   }
 
   // image
   return (
-    <div className="absolute inset-0">
-      {!loaded && (
+    <div className="relative w-full">
+      {!imgLoaded && (
         <div className="absolute inset-0 grid place-items-center text-white/60 text-sm">
           Loading…
         </div>
       )}
+      <div className="relative w-full" style={{ minHeight: 'min(68vh, 700px)' }}>
         <Image
           src={m.url}
           alt="media"
           fill
           sizes="(min-width:1024px) 60vw, 100vw"
           className={`object-contain transition duration-500 ease-[cubic-bezier(.2,.7,.2,1)] ${
-            loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.01]'
+            imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.01]'
           }`}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => setImgLoaded(true)}
           priority
           unoptimized
         />
-
+      </div>
     </div>
   );
 }
+
