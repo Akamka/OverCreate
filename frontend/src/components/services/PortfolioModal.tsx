@@ -453,24 +453,16 @@ export default function PortfolioModal({
 
 /* --------- один слайд с плавным появлением --------- */
 function MediaSlide({ m }: { m: Media }) {
-  // image: грузим мягко
   const [imgLoaded, setImgLoaded] = useState(m.type !== 'image');
-
-  // video: ручное управление
   const vRef = useRef<HTMLVideoElement | null>(null);
-  const [vPlaying, setVPlaying] = useState(false);
-
-  // youtube: запускаем автоплей после первого клика
   const [ytAutoplay, setYtAutoplay] = useState(false);
 
   useEffect(() => {
     setImgLoaded(m.type !== 'image');
-    setVPlaying(false);
     setYtAutoplay(false);
     if (vRef.current) {
       vRef.current.pause();
       vRef.current.currentTime = 0;
-      vRef.current.controls = false;
     }
   }, [m]);
 
@@ -502,31 +494,24 @@ function MediaSlide({ m }: { m: Media }) {
 
   if (m.type === 'video') {
     return (
-      <div className="relative">
-        <video
-          ref={vRef}
-          src={m.url}
-          className="block max-w-full max-h-[min(68vh,700px)] w-auto h-auto bg-black"
-          playsInline
-          // показываем контролы только после запуска
-          controls={vPlaying}
-          onPlay={() => setVPlaying(true)}
-        />
-        {!vPlaying && (
-          <button
-            aria-label="Play"
-            onClick={() => {
-              if (!vRef.current) return;
-              // для автоплея в некоторых браузерах требуется mute = true на первый кадр
-              try { vRef.current.muted = true; } catch {}
-              vRef.current.play().catch(() => {});
-              // вернём звук и покажем контролы
-              setTimeout(() => { if (vRef.current) vRef.current.muted = false; }, 100);
-            }}
-            className="absolute inset-0"
-          />
-        )}
-      </div>
+      <video
+        ref={vRef}
+        src={m.url}
+        className="block max-w-full max-h-[min(68vh,700px)] w-auto h-auto bg-black cursor-pointer"
+        controls        // ✅ всегда показываем элементы управления
+        playsInline
+        onClick={() => {
+          const v = vRef.current;
+          if (!v) return;
+          if (v.paused || v.ended) {
+            // небольшой хак на случай автоплей-политик: стартнём в mute, потом вернём звук
+            const wasMuted = v.muted;
+            v.muted = true;
+            v.play().catch(() => {});
+            setTimeout(() => { v.muted = wasMuted; }, 100);
+          }
+        }}
+      />
     );
   }
 
@@ -555,4 +540,5 @@ function MediaSlide({ m }: { m: Media }) {
     </div>
   );
 }
+
 
