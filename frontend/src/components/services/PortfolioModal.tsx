@@ -241,49 +241,65 @@ useEffect(() => {
     return () => window.removeEventListener('keydown', onKey);
   }, [id, onClose, next, prev]);
 
-  /* ===== свайпы по viewer ===== */
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
 
-    let sx = 0;
-    let sy = 0;
-    let dx = 0;
-    let dragging = false;
+/* ===== свайпы по viewer (не трогаем клики по video/iframe) ===== */
+useEffect(() => {
+  const el = trackRef.current;
+  if (!el) return;
 
-    const onDown = (e: PointerEvent) => {
-      dragging = true;
-      sx = e.clientX;
-      sy = e.clientY;
-      dx = 0;
-      el.setPointerCapture(e.pointerId);
-    };
-    const onMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      const ax = e.clientX - sx;
-      const ay = e.clientY - sy;
-      if (Math.abs(ax) > Math.abs(ay)) {
-        e.preventDefault();
-        dx = ax;
-      }
-    };
-    const onUp = () => {
-      if (!dragging) return;
+  let sx = 0;
+  let sy = 0;
+  let dx = 0;
+  let dragging = false;
+  let startedOnMedia = false;
+
+  const onDown = (e: PointerEvent) => {
+    const target = e.target as HTMLElement | null;
+    // ❗️Если жмём по video/iframe/controls — НИКАКИХ свайпов
+    startedOnMedia = !!target?.closest('video, iframe');
+    if (startedOnMedia) {
       dragging = false;
-      if (Math.abs(dx) > 40) (dx < 0 ? next : prev)();
-    };
+      return;
+    }
+    dragging = true;
+    sx = e.clientX;
+    sy = e.clientY;
+    dx = 0;
+    // setPointerCapture может ломать генерацию click на дочерних элементах
+    // поэтому используем его только если это НЕ медиа
+    el.setPointerCapture(e.pointerId);
+  };
 
-    el.addEventListener('pointerdown', onDown, { passive: true });
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', onUp);
-    return () => {
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointercancel', onUp);
-    };
-  }, [idx, next, prev]);
+  const onMove = (e: PointerEvent) => {
+    if (!dragging || startedOnMedia) return;
+    const ax = e.clientX - sx;
+    const ay = e.clientY - sy;
+    if (Math.abs(ax) > Math.abs(ay)) {
+      // горизонтальный жест — остановим скролл жестом
+      e.preventDefault();
+      dx = ax;
+    }
+  };
+
+  const onUp = () => {
+    if (!dragging || startedOnMedia) return;
+    dragging = false;
+    if (Math.abs(dx) > 40) (dx < 0 ? next : prev)();
+  };
+
+  el.addEventListener('pointerdown', onDown, { passive: true });
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+
+  return () => {
+    el.removeEventListener('pointerdown', onDown);
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup', onUp);
+    el.removeEventListener('pointercancel', onUp);
+  };
+}, [idx, next, prev]);
+
 
   if (!id) return null;
 
