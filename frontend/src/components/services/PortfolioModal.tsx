@@ -515,28 +515,38 @@ function MediaSlide({ m }: { m: Media }) {
     );
   }
 
-  if (m.type === 'video') {
-    return (
-      <video
-        ref={vRef}
-        src={m.url}
-        className="block max-w-full max-h-[min(68vh,700px)] w-auto h-auto bg-black cursor-pointer"
-        controls        // ✅ всегда показываем элементы управления
-        playsInline
-        onClick={() => {
-          const v = vRef.current;
-          if (!v) return;
-          if (v.paused || v.ended) {
-            // небольшой хак на случай автоплей-политик: стартнём в mute, потом вернём звук
-            const wasMuted = v.muted;
+if (m.type === 'video') {
+  return (
+    <video
+      ref={vRef}
+      src={m.url}
+      className="block max-w-full max-h-[min(68vh,700px)] w-auto h-auto bg-black"
+      controls
+      playsInline
+      onClick={(e) => {
+        // не даём клику «пройти» к свайповому контейнеру
+        // и отключаем нативный toggle у <video>, чтобы не было двойного действия
+        e.stopPropagation();
+        e.preventDefault();
+
+        const v = vRef.current;
+        if (!v) return;
+
+        if (v.paused || v.ended) {
+          // запускаем воспроизведение одним кликом
+          v.play().catch(() => {
+            // на случай политик браузера — попробуем в mute
             v.muted = true;
             v.play().catch(() => {});
-            setTimeout(() => { v.muted = wasMuted; }, 100);
-          }
-        }}
-      />
-    );
-  }
+          });
+        } else {
+          v.pause();
+        }
+      }}
+    />
+  );
+}
+
 
   // image
   return (
