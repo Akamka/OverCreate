@@ -184,49 +184,55 @@ export default function PortfolioModal({
     };
   }, [id, accFrom, accTo]);
 
-  /* ===== блокировка скролла + Lenis stop ===== */
+/* ===== ПОЛНАЯ блокировка скролла (работает и с iframe) + Lenis stop ===== */
 useEffect(() => {
   if (!id) return;
 
-  const root = document.documentElement;
+  const docEl = document.documentElement;
   const body = document.body;
 
-  root.classList.add('oc-no-vert-scroll');
-  body.classList.add('oc-no-vert-scroll');
-  root.setAttribute('data-lenis-lock', '1');
+  // Запоминаем позицию, фиксируем body (без дёргания контента)
+  const startY = window.scrollY;
+  const prev = {
+    htmlOverflow: docEl.style.overflow,
+    bodyOverflow: body.style.overflow,
+    bodyPos: body.style.position,
+    bodyTop: body.style.top,
+    bodyW: body.style.width,
+  };
+
+  docEl.style.overflow = 'hidden';
+  body.style.overflow = 'hidden';
+  body.style.position = 'fixed';
+  body.style.top = `-${startY}px`;
+  body.style.width = '100%';
 
   const lenis = getLenisFromWindow();
   const wasRunning = !!lenis && !lenis.isStopped;
   lenis?.stop();
 
-  // ✅ строго типизированный обработчик
-  const prevent: EventListener = (e) => {
-    const t = e.target as HTMLElement | null;
-    if (t && t.closest('video, iframe, button, a, input, textarea, [data-no-swipe]')) return;
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  // ✅ общие опции, совместимые и с add*, и с remove*
-  const opts: AddEventListenerOptions & EventListenerOptions = {
-    passive: false,
-    capture: true,
-  };
-
-  window.addEventListener('wheel', prevent, opts);
-  window.addEventListener('touchmove', prevent, opts);
-
-  dialogRef.current?.focus();
+  // Колесо/тач на окне: отменяем по-настоящему (non-passive)
+  const onWheel = (e: WheelEvent) => e.preventDefault();
+  const onTouch = (e: TouchEvent) => e.preventDefault();
+  window.addEventListener('wheel', onWheel, { passive: false });
+  window.addEventListener('touchmove', onTouch, { passive: false });
 
   return () => {
-    window.removeEventListener('wheel', prevent, opts);
-    window.removeEventListener('touchmove', prevent, opts);
-    root.classList.remove('oc-no-vert-scroll');
-    body.classList.remove('oc-no-vert-scroll');
-    root.removeAttribute('data-lenis-lock');
+    window.removeEventListener('wheel', onWheel);
+    window.removeEventListener('touchmove', onTouch);
+
+    // Возвращаем стили + позицию скролла
+    docEl.style.overflow = prev.htmlOverflow;
+    body.style.overflow = prev.bodyOverflow;
+    body.style.position = prev.bodyPos;
+    body.style.top = prev.bodyTop;
+    body.style.width = prev.bodyW;
+    window.scrollTo(0, startY);
+
     if (wasRunning) lenis?.start();
   };
 }, [id]);
+
 
 
   /* ===== esc / arrows ===== */
@@ -489,31 +495,21 @@ function MediaSlide({ m }: { m: Media }) {
     }
   }, [m]);
 
-  if (m.type === 'youtube') {
-    const src = ytAutoplay
-      ? `${m.url}${m.url.includes('?') ? '&' : '?'}autoplay=1&mute=0`
-      : m.url;
+if (m.type === 'youtube') {
+  return (
+    <div className="relative w-full">
+      <iframe
+        src={m.url} // без autoplay — юзер кликнет ▶ в самом плеере
+        title="YouTube"
+        allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
+        allowFullScreen
+        className="block w-full"
+        style={{ height: 'min(68vh, 700px)', border: 0 }}
+      />
+    </div>
+  );
+}
 
-    return (
-      <div className="relative w-full">
-        <iframe
-          src={src}
-          title="YouTube"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          className="block w-full"
-          style={{ height: 'min(68vh, 700px)', border: 0 }}
-        />
-        {!ytAutoplay && (
-          <button
-            aria-label="Play"
-            onClick={() => setYtAutoplay(true)}
-            className="absolute inset-0"
-          />
-        )}
-      </div>
-    );
-  }
 
 if (m.type === 'video') {
   return (
