@@ -116,13 +116,13 @@ export default function PrivacyPolicyPage() {
         <p>We use trusted third-party service providers:</p>
         <ul className="list-disc pl-6 space-y-2">
           <li>
-            <strong>Hosting / Database:</strong> (your hosting provider).
+            <strong>Hosting / Database:</strong> railway.
           </li>
           <li>
-            <strong>Media Storage:</strong> Cloudflare R2 (S3-compatible).
+            <strong>Media Storage:</strong> Cloudflare R2.
           </li>
           <li>
-            <strong>Email:</strong> Gmail (Google LLC).
+            <strong>Email:</strong> Gmail.
           </li>
           <li>
             [Optional] Analytics — only if explicitly enabled by consent.

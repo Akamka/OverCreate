@@ -25,6 +25,7 @@ const cfg = {
 export default function AboutSection() {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
+  const [flipped, setFlipped] = useState(false); // ← перевод в «оборот»
 
   // idle «дыхание» сцены
   useEffect(() => {
@@ -126,7 +127,7 @@ export default function AboutSection() {
           </div>
         </div>
 
-        {/* Правый блок — 3D карточка с логотипом */}
+        {/* Правый блок — 3D карточка, переворачивается кликом */}
         <div
           ref={cardRef}
           style={sceneStyle}
@@ -135,12 +136,24 @@ export default function AboutSection() {
             'border border-white/10',
             'transition-all duration-300',
             'will-change-transform',
+            'cursor-pointer select-none',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
           ].join(' ')}
+          role="button"
+          aria-pressed={flipped}
+          tabIndex={0}
           onMouseEnter={() => setHovered(true)}
           onMouseMove={onMove}
           onMouseLeave={onLeave}
+          onClick={() => setFlipped(v => !v)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setFlipped(v => !v);
+            }
+          }}
         >
-          {/* мягкие пятна */}
+          {/* мягкие пятна (снаружи) */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
@@ -154,63 +167,173 @@ export default function AboutSection() {
 
           {/* Вся сцена (внутренняя плоскость, которую наклоняем) */}
           <div className="absolute inset-0 [transform-style:preserve-3d] grid place-items-center">
+            {/* ЭТА плоскость — та самая «фото-часть», она же флиппер */}
             <div
               className={[
                 'relative w-[88%] h-[78%] max-w-[880px]',
-                '[transform:rotateX(var(--rx))_rotateY(var(--ry))_translateZ(0px)]',
+                // сначала наклон мышью…
+                '[transform-style:preserve-3d]',
                 'transition-transform duration-200 ease-out will-change-transform',
               ].join(' ')}
+              style={{
+                // наклон — на внешнем слое
+                transform: `rotateX(var(--rx)) rotateY(var(--ry)) translateZ(0px)`,
+              } as CSSProperties}
             >
-              {/* блик */}
-              <div
-                aria-hidden
-                className="absolute inset-0 rounded-3xl"
-                style={{
-                  background:
-                    'radial-gradient(380px 260px at var(--gx) var(--gy), rgba(255,255,255,.08), transparent 55%)',
-                }}
-              />
-
-              {/* плитка */}
+              {/* ВНУТРЕННИЙ флиппер — вращаем всю «фото-часть» */}
               <div
                 className={[
-                  'absolute inset-0 rounded-3xl bg-gradient-to-br from-white/[.02] to-white/[.03]',
-                  'border border-white/10 backdrop-blur-sm',
-                  'shadow-[0_10px_40px_-15px_rgba(0,0,0,.45)]',
-                  'transition-all duration-300',
-                  'group-hover:shadow-[0_30px_80px_-30px_rgba(59,130,246,.55),0_0_0_1px_rgba(255,255,255,.15)_inset]',
-                  'group-hover:[transform:translateZ(var(--lift))]',
+                  'absolute inset-0 [transform-style:preserve-3d]',
+                  'transition-transform duration-500',
+                  flipped ? '[transform:rotateY(180deg)]' : '',
                 ].join(' ')}
-              />
+              >
+                {/* FRONT */}
+<div
+  className={[
+    'absolute inset-0 rounded-3xl',
+    '[backface-visibility:hidden]',
+  ].join(' ')}
+>
+  {/* блик */}
+  <div
+    aria-hidden
+    className="absolute inset-0 rounded-3xl"
+    style={{
+      background:
+        'radial-gradient(380px 260px at var(--gx) var(--gy), rgba(255,255,255,.08), transparent 55%)',
+    }}
+  />
 
-              {/* ЛОГО — ЖЁСТКО ПО ЦЕНТРУ */}
-              <div className="absolute inset-0 [transform-style:preserve-3d] pointer-events-none">
+  {/* плитка/материал */}
+  <div
+    className={[
+      'absolute inset-0 rounded-3xl bg-gradient-to-br from-white/[.02] to-white/[.03]',
+      'border border-white/10 backdrop-blur-sm',
+      'shadow-[0_10px_40px_-15px_rgba(0,0,0,.45)]',
+      'transition-all duration-300',
+      'group-hover:shadow-[0_30px_80px_-30px_rgba(59,130,246,.55),0_0_0_1px_rgba(255,255,255,.15)_inset]',
+      'group-hover:[transform:translateZ(var(--lift))]',
+    ].join(' ')}
+  />
+
+  {/* ЛОГО — ЖЁСТКО ПО ЦЕНТРУ */}
+  <div className="absolute inset-0 [transform-style:preserve-3d] pointer-events-none">
+    <div
+      className="
+        absolute top-1/2 left-1/2
+        -translate-x-1/2 -translate-y-1/2
+        w-[86%] md:w-[90%] max-w-none
+        [transform:translateZ(12px)]
+        drop-shadow-[0_16px_40px_rgba(0,0,0,.35)]
+      "
+      style={{ transformStyle: 'preserve-3d' }}
+    >
+      {/* мягкое свечение вокруг лого */}
+      <div
+        aria-hidden
+        className="absolute -inset-6 rounded-[36px] blur-2xl opacity-60"
+        style={{
+          background:
+            'radial-gradient(40% 40% at 30% 30%, rgba(59,130,246,.18), transparent 60%), ' +
+            'radial-gradient(45% 45% at 70% 70%, rgba(168,85,247,.18), transparent 60%)',
+        }}
+      />
+      <img
+        src={LOGO_SRC}
+        alt="OverCreate logo"
+        draggable={false}
+        className="relative w-full h-auto select-none"
+      />
+    </div>
+  </div>
+</div>
+
+
+                {/* BACK */}
                 <div
-                  className="
-                    absolute top-1/2 left-1/2
-                    -translate-x-1/2 -translate-y-1/2
-                    w-[86%] md:w-[90%] max-w-none
-                    [transform:translateZ(12px)]
-                    drop-shadow-[0_16px_40px_rgba(0,0,0,.35)]
-                  "
-                  style={{ transformStyle: 'preserve-3d' }}
+                  className={[
+                    'absolute inset-0 rounded-3xl',
+                    '[transform:rotateY(180deg)] [backface-visibility:hidden]',
+                  ].join(' ')}
                 >
-                  {/* мягкое свечение вокруг лого */}
+                  {/* блик (пусть остаётся, чтобы эффекты были те же) */}
                   <div
                     aria-hidden
-                    className="absolute -inset-6 rounded-[36px] blur-2xl opacity-60"
+                    className="absolute inset-0 rounded-3xl"
                     style={{
                       background:
-                        'radial-gradient(40% 40% at 30% 30%, rgba(59,130,246,.18), transparent 60%), ' +
-                        'radial-gradient(45% 45% at 70% 70%, rgba(168,85,247,.18), transparent 60%)',
+                        'radial-gradient(380px 260px at var(--gx) var(--gy), rgba(255,255,255,.08), transparent 55%)',
                     }}
                   />
-                  <img
-                    src={LOGO_SRC}
-                    alt="OverCreate logo"
-                    draggable={false}
-                    className="relative w-full h-auto select-none"
+
+                  {/* «бумага» оборота */}
+                  <div
+                    className={[
+                      'absolute inset-0 rounded-3xl bg-gradient-to-br from-white/[.02] to-white/[.03]',
+                      'border border-white/10 backdrop-blur-sm',
+                      'shadow-[0_10px_40px_-15px_rgba(0,0,0,.45)]',
+                      'transition-all duration-300',
+                      'group-hover:shadow-[0_30px_80px_-30px_rgba(59,130,246,.55),0_0_0_1px_rgba(255,255,255,.15)_inset]',
+                      'group-hover:[transform:translateZ(var(--lift))]',
+                    ].join(' ')}
                   />
+
+                  {/* содержимое оборота */}
+{/* содержимое оборота */}
+<div className="absolute inset-0 [transform:translateZ(12px)] flex items-center justify-center px-6">
+  <div className="w-[88%] max-w-[560px] mx-auto text-center space-y-3 md:space-y-3.5 leading-relaxed">
+    {/* Заголовок */}
+    <h3 className="text-white/90 text-base md:text-lg font-semibold tracking-[.02em]">
+      OverCreate — <span className="whitespace-nowrap">Design × Code Studio</span>
+    </h3>
+
+    {/* Тонкий разделитель */}
+    <div className="h-px w-20 mx-auto bg-white/10" />
+
+    {/* Услуги — компактно и с хорошей читабельностью */}
+    <ul className="text-[12.5px] md:text-sm text-neutral-300 flex flex-wrap justify-center gap-x-3 gap-y-1">
+      <li>Motion Design</li>
+      <li className="opacity-40">•</li>
+      <li>Graphic Design</li>
+      <li className="opacity-40">•</li>
+      <li>Web Design</li>
+      
+      <li>Development</li>
+      <li className="opacity-40">•</li>
+      <li>Digital Printing</li>
+    </ul>
+
+    {/* Слоган */}
+    <p className="text-xs md:text-sm text-white/85 italic">
+      Design that ships, code that scales.
+    </p>
+
+    {/* Ещё один лёгкий разделитель */}
+    <div className="h-px w-16 mx-auto bg-white/8" />
+
+    {/* Контакты */}
+    <div className="text-[12px] md:text-[13px] text-neutral-300/90 space-y-1.5">
+      <div>
+        <a
+          href="mailto:overcreate.studio@gmail.com"
+          className="hover:text-white/90 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          overcreate.studio@gmail.com
+        </a>
+      </div>
+      <div className="text-neutral-400">
+        +48 575 933 658 / +380 969 901 003
+      </div>
+      <div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
                 </div>
               </div>
             </div>
