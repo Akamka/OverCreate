@@ -8,44 +8,56 @@ import type {
   ContactStatus,
 } from "../types";
 
-/* ================= BASE & TOKEN ================= */
+/* ================= BASE ================= */
 
-const {
-  VITE_API_BASE_URL,
-  VITE_API_BASE,
-  VITE_ADMIN_TOKEN,
-  VITE_DEFAULT_ADMIN_TOKEN,
-} = import.meta.env;
+const { VITE_API_BASE_URL, VITE_API_BASE } = import.meta.env;
 
 export const API_BASE: string =
   (VITE_API_BASE_URL && VITE_API_BASE_URL.trim()) ||
   (VITE_API_BASE && VITE_API_BASE.trim()) ||
   "http://127.0.0.1:8080";
 
-const ADMIN_TOKEN_ENV: string | undefined =
-  (VITE_ADMIN_TOKEN && VITE_ADMIN_TOKEN.trim()) ||
-  (VITE_DEFAULT_ADMIN_TOKEN && VITE_DEFAULT_ADMIN_TOKEN.trim()) ||
-  undefined;
+/* ========== TOKEN: только в памяти (без env и без localStorage) ========== */
 
-const LS_KEY = "ADMIN_TOKEN";
+let ADMIN_TOKEN_RUNTIME: string | undefined;
 
 export function getSavedToken(): string | undefined {
-  const ls = typeof localStorage !== "undefined" ? localStorage : undefined;
-  return ADMIN_TOKEN_ENV || ls?.getItem(LS_KEY) || undefined;
+  return ADMIN_TOKEN_RUNTIME;
 }
 export function saveAdminToken(t: string): void {
-  if (typeof localStorage !== "undefined") localStorage.setItem(LS_KEY, t);
+  ADMIN_TOKEN_RUNTIME = t?.trim() || undefined;
 }
 export function clearAdminToken(): void {
-  if (typeof localStorage !== "undefined") localStorage.removeItem(LS_KEY);
+  ADMIN_TOKEN_RUNTIME = undefined;
 }
+
+/** Лёгкая проверка токена на бэке (true — валиден, false — нет). */
+export async function checkAdminToken(token: string): Promise<boolean> {
+  // Проверяем токен тем же путём, что и все админ-вызовы
+  const prev = getSavedToken();
+  let ok = false;
+
+  try {
+    saveAdminToken(token); // временно подставляем
+    // лёгкий вызов в админке; можно заменить на /api/admin/ping если есть
+    await adminFetch<unknown>("/api/admin/users?per_page=1");
+    ok = true;
+  } catch {
+    ok = false;
+  } finally {
+    // возвращаем прежнее состояние
+    clearAdminToken();
+    if (prev) saveAdminToken(prev);
+  }
+
+  return ok;
+}
+
 
 function requireToken(): string {
   const t = getSavedToken();
   if (!t) {
-    throw new Error(
-      "Missing admin token. Задай VITE_ADMIN_TOKEN/VITE_DEFAULT_ADMIN_TOKEN или localStorage.ADMIN_TOKEN"
-    );
+    throw new Error("Missing admin token. Введите токен для доступа в админку.");
   }
   return t;
 }
@@ -55,18 +67,23 @@ function requireToken(): string {
 async function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = requireToken();
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Admin-Token": token,
-      ...(init.headers || {}),
-    },
-  });
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Admin-Token": token,
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  // Если тело не FormData — ставим JSON Content-Type (если не задан)
+  if (!(init.body instanceof FormData) && !("Content-Type" in headers)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 401 || res.status === 403) {
+      clearAdminToken(); // сбрасываем токен при неавторизованности
+    }
     throw new Error(text || `HTTP ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
@@ -82,12 +99,15 @@ async function adminFetchForm<T>(
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { Accept: "application/json", "X-Admin-Token": token },
+    headers: { Accept: "application/json", "X-Admin-Token": token }, // Content-Type для FormData выставит браузер
     body: form,
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 401 || res.status === 403) {
+      clearAdminToken();
+    }
     throw new Error(text || `HTTP ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
@@ -254,6 +274,7 @@ export async function adminDeletePortfolio(id: number): Promise<void> {
 /* ======== CONTACT SUBMISSIONS ======== */
 
 // список (публичный роут, без /admin, поэтому токен не нужен)
+// Оставляем текущую реализацию через adminFetch, чтобы не менять остальную логику
 export async function listContactSubmissions(
   _tokenOrUndefined?: string,
   pageUrl?: string
