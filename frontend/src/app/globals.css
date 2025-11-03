@@ -2612,6 +2612,9 @@ html, body {
 
 
 
+
+
+
 /*! Chat */
 
 /* ====== CHAT THEME UTILITIES ====== */
@@ -2623,6 +2626,9 @@ html, body {
   --oc-soft: 0 8px 24px -16px rgba(15,18,20,.22);
   --oc-neon: 0 0 0 1px rgba(132,94,247,.18), 0 8px 30px -12px rgba(132,94,247,.45);
 }
+
+
+
 
 /* мягкая сетка + шум */
 @layer utilities{
@@ -2689,6 +2695,9 @@ html, body {
 
 
 
+
+
+
 /* === FIX: убираем горизонтальный скролл при Lenis и 100vw === */
 
 /* 1) Больше НЕ ограничиваем корень 100vw (это и даёт «утечку» вправо) */
@@ -2725,12 +2734,6 @@ html, body {
 
 /* 5) На случай широких медиа в потоке */
 img, video, canvas, svg { max-width: 100%; height: auto; }
-
-
-
-
-
-/* ============ OC: utilities for subtle neon/dark-glass look ============ */
 
 
 

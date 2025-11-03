@@ -7,11 +7,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
 
 const items = [
-  { id: 'home',         label: 'Home' },
-  { id: 'services',     label: 'Services' },
-  { id: 'about',        label: 'About' },        // About перед Reviews
+  { id: 'home', label: 'Home' },
+  { id: 'services', label: 'Services' },
+  { id: 'about', label: 'About' },
   { id: 'testimonials', label: 'Reviews' },
-  { id: 'contact',      label: 'Contacts' },
+  { id: 'contact', label: 'Contacts' },
 ];
 
 export default function NavBar() {
@@ -20,12 +20,22 @@ export default function NavBar() {
 
   const [authed, setAuthed] = useState(false);
   const [barH, setBarH] = useState(0);
-  const [mounted, setMounted] = useState(false);      // для портала
+  const [mounted, setMounted] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const barRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  // mount + environment check
+  useEffect(() => {
+    setMounted(true);
+    const mq = window.matchMedia('(hover: none), (pointer: coarse)');
+    const apply = () => setIsTouch(mq.matches);
+    apply();
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, []);
 
-  // auth
+  // auth check
   useEffect(() => {
     const check = () => setAuthed(!!getToken());
     check();
@@ -38,12 +48,11 @@ export default function NavBar() {
     };
   }, []);
 
-  // замеряем высоту «пилюли» для спейсера/скролла
+  // measure height
   useEffect(() => {
     const update = () => setBarH(barRef.current?.offsetHeight ?? 0);
     update();
-    const ro =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
     if (barRef.current && ro) ro.observe(barRef.current);
     window.addEventListener('resize', update);
     return () => {
@@ -52,31 +61,33 @@ export default function NavBar() {
     };
   }, []);
 
-  // плавный скролл с учётом высоты бара
+  // scroll logic
   const scrollToId = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
     const rectTop = el.getBoundingClientRect().top;
-    const top = rectTop + window.scrollY - (barH + 8);
+    const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0');
+    const top = rectTop + window.scrollY - (barH + 8 + safeTop);
     window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   };
 
   const onClickItem = (id: string) => {
+    setMenuOpen(false);
     if (pathname === '/') {
       scrollToId(id);
     } else {
       router.push(`/#${id}`);
-      // подстрахуем после навигации
       setTimeout(() => scrollToId(id), 50);
     }
   };
 
   const goCabinet = () => {
+    setMenuOpen(false);
     if (authed) router.push('/dashboard');
     else router.push('/login?redirect=/dashboard');
   };
 
-  // активная подсветка
+  // active highlighting
   const [active, setActive] = useState<string>('home');
   useEffect(() => {
     if (pathname !== '/') return;
@@ -84,75 +95,88 @@ export default function NavBar() {
       (entries) => entries.forEach((e) => e.isIntersecting && setActive(e.target.id)),
       { rootMargin: `-${barH + 16}px 0px -70% 0px`, threshold: 0.08 }
     );
-    const targets = items
-      .map((i) => document.getElementById(i.id))
-      .filter(Boolean) as HTMLElement[];
+    const targets = items.map((i) => document.getElementById(i.id)).filter(Boolean) as HTMLElement[];
     targets.forEach((t) => io.observe(t));
     return () => io.disconnect();
   }, [barH, pathname]);
 
   const isActive = useMemo(
-    () => (id: string) =>
-      pathname === '/' && active === id ? 'bg-white/15 text-white' : '',
+    () => (id: string) => (pathname === '/' && active === id ? 'bg-white/15 text-white' : ''),
     [active, pathname]
   );
 
   const pill =
-    'rounded-full px-2 py-1 border border-white/10 backdrop-blur-xl bg-white/5 ' +
-    'shadow-md shadow-black/10';
+    'rounded-full px-3 py-1 border border-white/10 backdrop-blur-xl bg-white/5 shadow-md shadow-black/10';
   const btnBase =
-    'px-3 py-1.5 rounded-full text-sm transition will-change-transform select-none';
+    'px-3 py-2 rounded-full text-sm transition will-change-transform select-none';
   const btn =
     `${btnBase} text-neutral-200 hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0`;
   const btnPrimary =
     `${btnBase} bg-white text-neutral-900 hover:bg-white/90 hover:-translate-y-0.5 active:translate-y-0`;
 
-  // сам бар (портал)
+  // nav content
+  const NavContent = (
+    <nav className={`flex ${isTouch ? 'flex-col gap-2 p-3' : 'flex-row items-center gap-1'}`}>
+      {items.map((i) => (
+        <button
+          key={i.id}
+          onClick={() => onClickItem(i.id)}
+          className={`${btn} ${isActive(i.id)}`}
+        >
+          {i.label}
+        </button>
+      ))}
+
+      <span className={`${isTouch ? 'hidden' : 'mx-1 h-5 w-px bg-white/10'}`} />
+
+      {authed ? (
+        <button onClick={goCabinet} className={btnPrimary}>
+          Dashboard
+        </button>
+      ) : (
+        <>
+          <Link href="/login?redirect=/dashboard" onClick={() => setMenuOpen(false)} className={btn}>
+            Sign in
+          </Link>
+          <Link href="/register" onClick={() => setMenuOpen(false)} className={btnPrimary}>
+            Sign Up
+          </Link>
+        </>
+      )}
+    </nav>
+  );
+
   const Bar = (
     <div
-      // фиксируем к ВЬЮПОРТУ: портал в body обходит contain/transform у предков
-      className="fixed left-0 right-0 z-[100000] flex justify-center pt-3 md:pt-4"
-      style={{ top: 24 }} // top-6
+      className="fixed left-0 right-0 z-[100000] flex justify-center pt-[env(safe-area-inset-top,0)] md:pt-4"
+      style={{ top: 16 }}
     >
       <div ref={barRef} className={pill}>
-        <nav className="flex items-center gap-1">
-          {items.map((i) => (
+        {isTouch ? (
+          <div className="flex items-center justify-between px-2">
             <button
-              key={i.id}
-              onClick={() => onClickItem(i.id)}
-              className={`${btn} ${isActive(i.id)}`}
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Menu"
+              className="text-white p-2 rounded-full hover:bg-white/10"
             >
-              {i.label}
+              ☰
             </button>
-          ))}
-
-          <span className="mx-1 h-5 w-px bg-white/10" />
-
-          {authed ? (
-            <button onClick={goCabinet} className={btnPrimary}>
-              Dashboard
-            </button>
-          ) : (
-            <>
-              <Link href="/login?redirect=/dashboard" className={btn}>
-                Sign in
-              </Link>
-              <Link href="/register" className={btnPrimary}>
-                Sign Up
-              </Link>
-            </>
-          )}
-        </nav>
+            {menuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 rounded-2xl bg-neutral-900/95 backdrop-blur-xl border border-white/10 shadow-lg">
+                {NavContent}
+              </div>
+            )}
+          </div>
+        ) : (
+          NavContent
+        )}
       </div>
     </div>
   );
 
   return (
     <>
-      {/* Спейсер в потоке страницы, чтобы контент не прятался под fixed-баром */}
-      <div style={{ height: barH + 24 + 8 }} aria-hidden />
-
-      {/* Сам бар — в портал. Так он не зависит от .oc-bg-root { contain: paint } */}
+      <div style={{ height: barH + 32 }} aria-hidden />
       {mounted ? createPortal(Bar, document.body) : null}
     </>
   );
