@@ -78,3 +78,24 @@ export type PortfolioItem = {
   created_at: string;
   updated_at?: string;
 };
+
+
+/* ---------- Posts ---------- */
+
+export type Post = {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  body: string;
+  cover_url?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  keywords?: string[] | null;
+  cta_text?: string | null;
+  cta_url?: string | null;
+  is_published: boolean;
+  published_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};

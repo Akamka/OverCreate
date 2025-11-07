@@ -127,6 +127,11 @@ export default function NavBar() {
         </button>
       ))}
 
+      {/* Добавили кнопку перехода на блог/инсайты */}
+      <Link href="/insights" onClick={() => setMenuOpen(false)} className={btn}>
+        Insights
+      </Link>
+
       <span className={`${isTouch ? 'hidden' : 'mx-1 h-5 w-px bg-white/10'}`} />
 
       {authed ? (

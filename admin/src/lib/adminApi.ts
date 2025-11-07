@@ -6,6 +6,7 @@ import type {
   Project,
   User,
   ContactStatus,
+  Post,
 } from "../types";
 
 /* ================= BASE ================= */
@@ -382,4 +383,43 @@ export async function adminUpdateProject(
 
 export async function adminDeleteProject(_token: string, id: number): Promise<void> {
   await adminFetch<void>(`/api/admin/projects/${id}`, { method: "DELETE" });
+}
+
+
+
+
+
+/* ================= POSTS (BLOG) ================= */
+
+
+export async function adminListPosts(params: {
+  page?: number; per_page?: number; q?: string;
+}): Promise<Paginated<Post>> {
+  const q = new URLSearchParams();
+  if (params.page) q.set("page", String(params.page));
+  if (params.per_page) q.set("per_page", String(params.per_page));
+  if (params.q) q.set("q", params.q);
+  return adminFetch<Paginated<Post>>(`/api/admin/posts?${q.toString()}`);
+}
+
+export async function adminShowPost(id: number): Promise<Post> {
+  return adminFetch<Post>(`/api/admin/posts/${id}`);
+}
+
+export async function adminCreatePost(payload: Partial<Post>): Promise<Post> {
+  return adminFetch<Post>(`/api/admin/posts`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function adminUpdatePost(id: number, patch: Partial<Post>): Promise<Post> {
+  return adminFetch<Post>(`/api/admin/posts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function adminDeletePost(id: number): Promise<void> {
+  await adminFetch<void>(`/api/admin/posts/${id}`, { method: "DELETE" });
 }

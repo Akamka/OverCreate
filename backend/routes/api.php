@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Api\ContactSubmissionController;
+use App\Http\Controllers\Api\PostController;              // ← ДОБАВЛЕНО: публичный блог
 
 // --- ЛК/чат (Sanctum) ---
 use App\Http\Controllers\AuthController;
@@ -18,11 +19,13 @@ use App\Http\Controllers\PasswordResetController;
 // --- Админка ---
 use App\Http\Controllers\Admin\UserAdminController;
 use App\Http\Controllers\Admin\ProjectAdminController;
+use App\Http\Controllers\Admin\PostAdminController;       // ← ДОБАВЛЕНО: админ блог
 
 // --- Доп. классы для верификации ---
 use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Verified;
 use App\Models\User;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +40,10 @@ Route::get('/contact-submissions', [ContactSubmissionController::class, 'index']
 
 // портфолио
 Route::apiResource('portfolio', PortfolioController::class)->only(['index', 'show']);
+
+// БЛОГ (публичные статьи)  ← ДОБАВЛЕНО
+Route::get('/posts',        [PostController::class, 'index']);
+Route::get('/posts/{slug}', [PostController::class, 'show']);
 
 // заказы
 Route::post('/orders', [OrderController::class, 'store']);
@@ -191,4 +198,12 @@ Route::prefix('admin')->middleware(\App\Http\Middleware\AdminToken::class)->grou
 
     // Портфолио (админ)
     Route::apiResource('portfolio', PortfolioController::class)->only(['store','update','destroy']);
+
+    // БЛОГ (админ)  ← ДОБАВЛЕНО
+    Route::get('/posts',        [PostAdminController::class, 'index']);
+    Route::post('/posts',       [PostAdminController::class, 'store']);
+    Route::get('/posts/{id}',   [PostAdminController::class, 'show']);
+    Route::patch('/posts/{id}', [PostAdminController::class, 'update']);
+    Route::delete('/posts/{id}',[PostAdminController::class, 'destroy']);
+    
 });

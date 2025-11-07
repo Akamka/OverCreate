@@ -20,8 +20,14 @@ export type Portfolio = {
   created_at?: string;
 };
 
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'https://api.overcreate.co').replace(/\/+$/, '');
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || `${BASE}/api`).replace(/\/+$/, '') as string;
+/** Корень бэкенда (БЕЗ /api). */
+const BASE = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NODE_ENV !== 'production' ? 'http://127.0.0.1:8080' : 'https://api.overcreate.co')
+).replace(/\/+$/, '');
+
+/** Корень API (С /api). */
+export const API_URL = `${BASE}/api` as const;
 
 /* ---------- токен ---------- */
 
@@ -83,7 +89,6 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (ct.includes('application/json')) {
     return (await res.json()) as T;
   }
-  // пустое тело/не JSON
   return undefined as unknown as T;
 }
 
@@ -95,9 +100,6 @@ export async function apiGet<T>(path: string): Promise<T> {
   return handleResponse<T>(res);
 }
 
-/**
- * JSON-запрос с возможностью передавать доп. заголовки (напр. X-Socket-Id).
- */
 export async function apiSend<T>(
   path: string,
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
@@ -105,21 +107,18 @@ export async function apiSend<T>(
   extraHeaders?: Record<string, string>
 ): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
-     method,
-     headers: {
-       Accept: 'application/json',
-       'Content-Type': 'application/json',
-       ...authHeader(),
-       ...(extraHeaders ?? {}),
-     },
-     body: body != null ? JSON.stringify(body) : undefined,
+    method,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...authHeader(),
+      ...(extraHeaders ?? {}),
+    },
+    body: body != null ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);
 }
 
-/**
- * multipart/form-data с авторизацией и доп. заголовками (напр. X-Socket-Id).
- */
 export async function apiSendForm<T>(
   path: string,
   form: FormData,
@@ -146,13 +145,9 @@ export async function fetchPortfolioByService(
   perPage = 12,
   { revalidate = 60 }: { revalidate?: number } = {}
 ) {
-  const url = new URL(`${BASE}/api/portfolio`);
-  url.searchParams.set('service_type', service);
-  url.searchParams.set('published', '1');
-  url.searchParams.set('page', String(page));
-  url.searchParams.set('per_page', String(perPage));
-
-  const res = await fetch(url.toString(), { next: { revalidate } });
+  // ЯВНЫЙ абсолютный URL — никаких rewrites
+  const url = `${BASE}/api/portfolio?service_type=${encodeURIComponent(service)}&published=1&page=${page}&per_page=${perPage}`;
+  const res = await fetch(url, { next: { revalidate } });
   if (!res.ok) throw new Error('Failed to load portfolio');
   return (await res.json()) as Paginated<Portfolio>;
 }
@@ -160,4 +155,71 @@ export async function fetchPortfolioByService(
 import type { Portfolio as PortfolioItem } from '@/types/portfolio';
 export async function fetchPortfolioItem(id: number) {
   return apiGet<PortfolioItem>(`/portfolio/${id}`);
+}
+
+/* ----------- blog public ----------- */
+import type { Post } from '@/types/post';
+
+export async function fetchPosts(
+  page = 1,
+  perPage = 10,
+  opts: { revalidate?: number } = {}
+) {
+  try {
+    // Используем абсолютный URL к API, а не относительный
+    const url = new URL(`${API_URL}/posts`);
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('per_page', String(perPage));
+
+    console.log('>>> fetchPosts URL:', url.toString()); // для проверки
+
+    const res = await fetch(url.toString(), {
+      next: { revalidate: opts.revalidate ?? 120 },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.warn('fetchPosts non-OK:', res.status, text.slice(0, 200));
+      return {
+        data: [],
+        meta: { current_page: page, last_page: 1, per_page: perPage, total: 0 },
+      } as Paginated<Post>;
+    }
+
+    return (await res.json()) as Paginated<Post>;
+  } catch (e) {
+    console.error('fetchPosts failed:', e);
+    return {
+      data: [],
+      meta: { current_page: page, last_page: 1, per_page: perPage, total: 0 },
+    } as Paginated<Post>;
+  }
+}
+
+
+/** Один пост по slug (публичный). */
+export async function fetchPostBySlug(
+  slug: string,
+  opts: { revalidate?: number } = {}
+) {
+  // строим полный URL явно, а не через new URL('/…', API_URL),
+  // чтобы не потерять /api
+  const url = `${BASE}/api/posts/${encodeURIComponent(slug)}`;
+
+  try {
+    const res = await fetch(url, {
+      next: { revalidate: opts.revalidate ?? 300 },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.warn('fetchPostBySlug non-OK:', res.status, url, text.slice(0, 200));
+      return null;
+    }
+
+    return (await res.json()) as Post;
+  } catch (e) {
+    console.error('fetchPostBySlug failed:', e);
+    return null;
+  }
 }
