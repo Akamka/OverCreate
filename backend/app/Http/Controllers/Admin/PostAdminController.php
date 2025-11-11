@@ -23,7 +23,10 @@ class PostAdminController extends Controller
         return response()->json($items);
     }
 
-    public function show(int $id) { return Post::findOrFail($id); }
+    public function show(int $id)
+    {
+        return Post::findOrFail($id);
+    }
 
     public function store(Request $r)
     {
@@ -32,7 +35,7 @@ class PostAdminController extends Controller
             'slug'             => 'nullable|string|max:200|unique:posts,slug',
             'excerpt'          => 'nullable|string|max:600',
             'body'             => 'required|string',
-            'cover_url'        => 'nullable|url',
+            'cover_url'        => 'nullable|string|max:500',
             'meta_title'       => 'nullable|string|max:160',
             'meta_description' => 'nullable|string|max:180',
             'keywords'         => 'nullable|array',
@@ -42,8 +45,19 @@ class PostAdminController extends Controller
             'is_published'     => 'boolean',
         ]);
 
-        if (empty($data['slug'])) $data['slug'] = Str::slug($data['title']);
-        if (!empty($data['is_published'])) $data['published_at'] = now();
+        if (empty($data['slug'])) {
+            $data['slug'] = $this->makeUniqueSlug(Str::slug($data['title']));
+        } else {
+            $data['slug'] = $this->makeUniqueSlug(Str::slug($data['slug']));
+        }
+
+        if (!empty($data['is_published'])) {
+            $data['published_at'] = now();
+        }
+
+        if (isset($data['keywords']) && is_array($data['keywords'])) {
+            $data['keywords'] = array_values(array_map('strval', $data['keywords']));
+        }
 
         $post = Post::create($data);
         return response()->json($post, 201);
@@ -58,7 +72,7 @@ class PostAdminController extends Controller
             'slug'             => ['sometimes','string','max:200', Rule::unique('posts','slug')->ignore($post->id)],
             'excerpt'          => 'sometimes|nullable|string|max:600',
             'body'             => 'sometimes|string',
-            'cover_url'        => 'sometimes|nullable|url',
+            'cover_url'        => 'sometimes|nullable|string|max:500',
             'meta_title'       => 'sometimes|nullable|string|max:160',
             'meta_description' => 'sometimes|nullable|string|max:180',
             'keywords'         => 'sometimes|array',
@@ -68,8 +82,20 @@ class PostAdminController extends Controller
             'is_published'     => 'sometimes|boolean',
         ]);
 
+        // нормализуем slug (и сохраняем уникальность)
+        if (array_key_exists('slug', $data)) {
+            $data['slug'] = $data['slug'] ? $this->makeUniqueSlug(Str::slug($data['slug']), $post->id) : $post->slug;
+        }
+
+        // нормализуем keywords
+        if (isset($data['keywords']) && is_array($data['keywords'])) {
+            $data['keywords'] = array_values(array_map('strval', $data['keywords']));
+        }
+
         $wasDraft = !$post->is_published;
+
         $post->fill($data);
+
         if ($wasDraft && $post->is_published && !$post->published_at) {
             $post->published_at = now();
         }
@@ -82,5 +108,26 @@ class PostAdminController extends Controller
     {
         Post::findOrFail($id)->delete();
         return response()->noContent();
+    }
+
+    /**
+     * Делает уникальный slug. Если занят — добавляет -2, -3, ...
+     */
+    protected function makeUniqueSlug(string $base, ?int $ignoreId = null): string
+    {
+        $slug = $base ?: 'post';
+        $i = 1;
+        while ($this->slugExists($slug, $ignoreId)) {
+            $i++;
+            $slug = $base . '-' . $i;
+        }
+        return $slug;
+    }
+
+    protected function slugExists(string $slug, ?int $ignoreId = null): bool
+    {
+        $q = Post::where('slug', $slug);
+        if ($ignoreId) $q->where('id', '!=', $ignoreId);
+        return $q->exists();
     }
 }

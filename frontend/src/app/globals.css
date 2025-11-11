@@ -1,7 +1,11 @@
 /* =========================
    Tailwind v4 import
    ========================= */
+/* app/globals.css */
 @import "tailwindcss";
+/* …другие импорты… */
+@import "../styles/insights-hero.css" layer(components);
+@import "../styles/insight-prose.css" layer(components);
 
 /* =========================
    Базовая тема
@@ -2737,3 +2741,18 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 
 
 
+
+
+
+/* Карточка — вертикальная колонка на всю высоту */
+.hlx-card{
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* CTA уезжает к низу карточки */
+.ins-card__cta{
+  margin-top: auto;
+  padding-top: .75rem; /* маленький отступ от метаданных */
+}

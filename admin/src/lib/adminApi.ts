@@ -34,26 +34,22 @@ export function clearAdminToken(): void {
 
 /** Лёгкая проверка токена на бэке (true — валиден, false — нет). */
 export async function checkAdminToken(token: string): Promise<boolean> {
-  // Проверяем токен тем же путём, что и все админ-вызовы
   const prev = getSavedToken();
   let ok = false;
 
   try {
-    saveAdminToken(token); // временно подставляем
-    // лёгкий вызов в админке; можно заменить на /api/admin/ping если есть
+    saveAdminToken(token);
     await adminFetch<unknown>("/api/admin/users?per_page=1");
     ok = true;
   } catch {
     ok = false;
   } finally {
-    // возвращаем прежнее состояние
     clearAdminToken();
     if (prev) saveAdminToken(prev);
   }
 
   return ok;
 }
-
 
 function requireToken(): string {
   const t = getSavedToken();
@@ -73,7 +69,6 @@ async function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     "X-Admin-Token": token,
     ...(init.headers as Record<string, string> | undefined),
   };
-  // Если тело не FormData — ставим JSON Content-Type (если не задан)
   if (!(init.body instanceof FormData) && !("Content-Type" in headers)) {
     headers["Content-Type"] = "application/json";
   }
@@ -83,7 +78,7 @@ async function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     if (res.status === 401 || res.status === 403) {
-      clearAdminToken(); // сбрасываем токен при неавторизованности
+      clearAdminToken();
     }
     throw new Error(text || `HTTP ${res.status}`);
   }
@@ -100,7 +95,7 @@ async function adminFetchForm<T>(
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { Accept: "application/json", "X-Admin-Token": token }, // Content-Type для FormData выставит браузер
+    headers: { Accept: "application/json", "X-Admin-Token": token },
     body: form,
   });
 
@@ -141,13 +136,11 @@ export type PortfolioCreatePayload = {
   service_type: ServiceSlug | string;
   slug?: string;
 
-  // изображения/галерея
   cover?: File | null;
   gallery_files?: File[] | null;
   cover_url?: string | null;
   gallery?: string[] | null;
 
-  // видео (YouTube)
   video_url?: string | null;
 
   client?: string | null;
@@ -176,7 +169,6 @@ export async function adminListPortfolio(params: {
   if (typeof params.published === "boolean")
     q.set("published", params.published ? "1" : "0");
 
-  // список берём с публичного /api/portfolio (админ-роута для index нет)
   return adminFetch<Paginated<PortfolioItem>>(`/api/portfolio?${q.toString()}`);
 }
 
@@ -188,16 +180,12 @@ export async function adminCreatePortfolio(
   fd.set("service_type", String(payload.service_type));
   if (payload.slug) fd.set("slug", payload.slug);
 
-  // видео: если есть — шлём video_url и НЕ отправляем галерею
   if (payload.video_url) {
     fd.set("video_url", payload.video_url);
   }
-
-  // обложку можно присылать всегда (и с видео тоже — для превью)
   if (payload.cover) fd.set("cover", payload.cover);
   if (payload.cover_url) fd.set("cover_url", payload.cover_url);
 
-  // галерею отправляем только если нет видео
   if (!payload.video_url) {
     if (payload.gallery_files?.length)
       payload.gallery_files.forEach((f) => fd.append("gallery_files[]", f));
@@ -231,16 +219,13 @@ export async function adminUpdatePortfolio(
   if (patch.service_type) fd.set("service_type", String(patch.service_type));
   if (patch.slug) fd.set("slug", patch.slug);
 
-  // video_url: если ключ присутствует — изменяем/очищаем ("" = очистка)
   if (typeof patch.video_url !== "undefined") {
     fd.set("video_url", patch.video_url ?? "");
   }
 
-  // обложку можно отправлять всегда
   if (patch.cover) fd.set("cover", patch.cover);
   if (patch.cover_url) fd.set("cover_url", patch.cover_url);
 
-  // галерею отправляем только если video_url не присылается ИЛИ присылается как пустая строка
   const willChangeVideo =
     typeof patch.video_url !== "undefined" && !!(patch.video_url && patch.video_url.trim());
 
@@ -272,10 +257,8 @@ export async function adminDeletePortfolio(id: number): Promise<void> {
   await adminFetch<void>(`/api/admin/portfolio/${id}`, { method: "DELETE" });
 }
 
-/* ======== CONTACT SUBMISSIONS ======== */
+/* ================= CONTACT SUBMISSIONS ================= */
 
-// список (публичный роут, без /admin, поэтому токен не нужен)
-// Оставляем текущую реализацию через adminFetch, чтобы не менять остальную логику
 export async function listContactSubmissions(
   _tokenOrUndefined?: string,
   pageUrl?: string
@@ -287,7 +270,6 @@ export async function listContactSubmissions(
   return adminFetch<Paginated<ContactSubmission>>(`/api/contact-submissions`);
 }
 
-// обновление статуса — админ-роут
 export async function adminUpdateContactStatus(
   id: number,
   status: ContactStatus
@@ -298,14 +280,12 @@ export async function adminUpdateContactStatus(
   });
 }
 
-// удаление — админ-роут
 export async function adminDeleteContact(id: number): Promise<void> {
   await adminFetch<void>(`/api/admin/contact-submissions/${id}`, {
     method: "DELETE",
   });
 }
 
-// массовое удаление — простая обёртка
 export async function adminBulkDeleteContacts(ids: number[]): Promise<void> {
   for (const id of ids) {
     // eslint-disable-next-line no-await-in-loop
@@ -385,12 +365,7 @@ export async function adminDeleteProject(_token: string, id: number): Promise<vo
   await adminFetch<void>(`/api/admin/projects/${id}`, { method: "DELETE" });
 }
 
-
-
-
-
 /* ================= POSTS (BLOG) ================= */
-
 
 export async function adminListPosts(params: {
   page?: number; per_page?: number; q?: string;

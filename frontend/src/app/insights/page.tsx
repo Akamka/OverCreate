@@ -1,105 +1,162 @@
+// app/insights/page.tsx
 import Link from "next/link";
+import { fetchPosts } from "@/lib/api";
+import type { Post } from "@/types/post";
+import { themeFromSlug } from "@/lib/theme";
+import BackToHome from "@/components/ui/BackToHome";
+import InsightsBrowser from "./InsightsBrowser";
+
+/* ========= adapter: Post(API) -> Insight ========= */
 
 type Insight = {
   slug: string;
   title: string;
   excerpt: string;
   cover: string;
-  date: string;
-  readTime: string;
+  date: string;      // ISO YYYY-MM-DD
+  readTime: string;  // "6 min"
   tags: string[];
   theme?: "service-web" | "service-motion" | "service-graphic" | "service-dev" | "service-printing";
 };
 
-const insights: Insight[] = [
-  {
-    slug: "motion-as-conversion",
-    title: "Motion как инструмент конверсии: где анимация реально продаёт",
-    excerpt:
-      "Микроанимации повышают осмысленность интерфейса и ведут к целевому действию — без цирка и перегруза.",
-    cover: "https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?q=80&w=1400&auto=format&fit=crop",
-    date: "2025-03-08",
-    readTime: "6 мин",
-    tags: ["UX", "Motion", "A/B"],
-    theme: "service-motion",
-  },
-  {
-    slug: "glass-architecture",
-    title: "Стеклянная архитектура UI: как добиться премиального ощущения",
-    excerpt:
-      "Разбираем стекло, глубину, свет и неоновые акценты так, чтобы оставаться быстрыми и доступными.",
-    cover: "https://images.unsplash.com/photo-1527443154391-507e9dc6c5cc?q=80&w=1400&auto=format&fit=crop",
-    date: "2025-02-22",
-    readTime: "8 мин",
-    tags: ["UI", "Brand feel"],
-    theme: "service-web",
-  },
-  {
-    slug: "design-systems-that-breathe",
-    title: "Дизайн-системы, которые дышат: живая типографика и акценты",
-    excerpt:
-      "Гибкая сетка, цветовой ритм и микрофизика делают интерфейсы узнаваемыми, а команды — быстрее.",
-    cover: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1400&auto=format&fit=crop",
-    date: "2025-01-12",
-    readTime: "7 мин",
-    tags: ["Design System", "Typography"],
-    theme: "service-graphic",
-  },
-];
+function pickString(...vals: Array<string | null | undefined>): string {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
 
-export const metadata = {
-  title: "Insights — OverCreate",
-};
+function toTags(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return (input as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+  }
+  if (typeof input === "string") {
+    return input
+      .split(/[,;]|(\s{2,})/g)
+      .map((s) => (s ?? "").trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function computeReadTime(html: string): string {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const words = text ? text.split(" ").length : 0;
+  const mins = Math.max(1, Math.round(words / 200));
+  return `${mins} min`;
+}
+
+function pickTheme(keywords?: string[] | null): Insight["theme"] | undefined {
+  if (!keywords?.length) return undefined;
+  const lower = keywords.map((k) => k.toLowerCase().trim());
+
+  const kv = lower.find((k) => k.startsWith("theme:"));
+  if (kv) {
+    const v = kv.split(":")[1]?.trim();
+    switch (v) {
+      case "web": return "service-web";
+      case "motion": return "service-motion";
+      case "graphic": return "service-graphic";
+      case "dev": return "service-dev";
+      case "printing": return "service-printing";
+    }
+  }
+  const direct = lower.find((k) =>
+    ["service-web","service-motion","service-graphic","service-dev","service-printing"].includes(k)
+  ) as Insight["theme"] | undefined;
+
+  return direct;
+}
+
+function toInsight(p: Post): Insight {
+  const dict = p as unknown as Record<string, unknown>;
+
+  const getStr = (obj: Record<string, unknown>, key: string): string => {
+    const v = obj[key];
+    return typeof v === "string" ? v.trim() : "";
+  };
+  const getStrPath = (obj: Record<string, unknown>, path: string[]): string => {
+    let cur: unknown = obj;
+    for (const k of path) {
+      if (cur && typeof cur === "object" && k in (cur as Record<string, unknown>)) {
+        cur = (cur as Record<string, unknown>)[k];
+      } else {
+        return "";
+      }
+    }
+    return typeof cur === "string" ? cur.trim() : "";
+  };
+
+  const cover = pickString(
+    getStr(dict, "cover_url"),
+    getStr(dict, "coverUrl"),
+    getStr(dict, "cover"),
+    getStrPath(dict, ["image", "url"])
+  );
+
+  const date = pickString(
+    getStr(dict, "published_at"),
+    getStr(dict, "publishedAt"),
+    getStr(dict, "created_at"),
+    getStr(dict, "createdAt")
+  ).slice(0, 10);
+
+  const body = getStr(dict, "body");
+
+  const rawKeywords = (dict["keywords"] as unknown) ?? (dict["tags"] as unknown);
+  const tags = toTags(rawKeywords);
+
+  const theme = pickTheme(tags);
+
+  return {
+    slug: getStr(dict, "slug"),
+    title: getStr(dict, "title"),
+    excerpt: getStr(dict, "excerpt"),
+    cover,
+    date,
+    readTime: computeReadTime(body),
+    tags,
+    theme,
+  };
+}
+
+/* ========= /meta ========= */
+
+export const metadata = { title: "Insights — OverCreate" };
 
 export default async function InsightsPage() {
+  const page = await fetchPosts(1, 12, { revalidate: 60 });
+  const items = (page.data ?? []) as Post[];
+  const insights: Insight[] = items.map(toInsight);
   const featured = insights.slice(0, 2);
 
   return (
     <main>
+      <BackToHome href="/" />
+
       {/* HERO */}
       <header className="oc-section section-soft service-web">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="hcard3d hero-card hcard">
-            <div className="hcard-body p-8 md:p-10">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl overflow-hidden">
-                  <div className="hero-ring"></div>
-                  <div className="hero-ring-shadow"></div>
-                  <div className="absolute inset-0 rounded-2xl bg-acc-grad opacity-80"></div>
-                </div>
-                <div className="grow">
-                  <h1 className="text-3xl md:text-5xl font-extrabold nfq-title-safe" data-reveal>
-                    Insights: как мы делаем интерфейсы премиальными
-                  </h1>
-                  <p
-                    className="mt-3 text-zinc-300/90 max-w-2xl"
-                    data-reveal
-                    style={{ ["--reveal-delay" as any]: "140ms" }}
-                  >
-                    Короткие, практичные заметки из нашей студии: дизайн-системы, motion, брендинг интерфейсов и рост
-                    метрик без «визуального шума».
-                  </p>
-                  <div
-                    className="mt-6 flex flex-wrap gap-3"
-                    data-reveal
-                    style={{ ["--reveal-delay" as any]: "260ms" }}
-                  >
-                    <Link href="#all" className="btn-acc btn-acc-primary">
-                      Читать заметки
-                    </Link>
-                    <Link href="/#contact" className="btn-acc btn-acc-outline">
-                      Обсудить проект
-                    </Link>
-                  </div>
-                </div>
+          <div className="ins-hero">
+            <div className="ins-hero__ringWrap" aria-hidden>
+              <div className="ins-hero__ring" />
+            </div>
+            <div className="ins-hero__shadow" aria-hidden />
+
+            <div className="ins-hero__body">
+              <h1 className="ins-hero__title">Insights: how we craft premium interfaces</h1>
+
+              <p className="ins-hero__lead">
+                Short, practical notes from our studio: design systems, motion, interface branding,
+                and metric growth without visual noise.
+              </p>
+
+              {/* Якорь — плавность через css: html{scroll-behavior:smooth} */}
+              <div className="ins-hero__cta">
+                <Link href="#all" className="btn-acc btn-acc-primary">Read notes</Link>
+                <Link href="/#contact" className="btn-acc btn-acc-outline">Discuss a project</Link>
               </div>
             </div>
-            <span className="hcard-engrave" />
-            <span className="hcard-shard a" />
-            <span className="hcard-shard b" />
-            <span className="hcard-shine" />
-            <span className="hcard-scan" />
-            <span className="hcard-chip" />
           </div>
         </div>
       </header>
@@ -108,93 +165,65 @@ export default async function InsightsPage() {
       <section className="oc-section section-soft" aria-labelledby="featured">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-baseline justify-between">
-            <h2 id="featured" className="text-xl md:text-2xl font-bold text-white mb-4">
-              Избранное
-            </h2>
-            <span className="text-zinc-400 text-sm">Живые кейсы и A/B-сравнения</span>
+            <h2 id="featured" className="text-xl md:text-2xl font-bold text-white mb-4">Featured</h2>
+            <span className="text-zinc-400 text-sm">Live case studies and A/B comparisons</span>
           </div>
 
           <div className="pf-bleed-guard pf-viewport relative">
             <div className="pf-edges">
-              <div className="pf-edge pf-edge-left"></div>
-              <div className="pf-edge pf-edge-right"></div>
+              <div className="pf-edge pf-edge-left" />
+              <div className="pf-edge pf-edge-right" />
             </div>
 
             <div className="pf-rail no-scrollbar">
-              {featured.map((it) => (
-                <article key={it.slug} className={`pf-card hcard3d ${it.theme ?? ""}`}>
-                  <div className="pf-ring"></div>
-                  <div className="pf-cover">
-                    <img src={it.cover} alt="" className="pf-img" />
-                    <div className="pf-spot"></div>
-                    <div className="pf-vignette"></div>
-                    <div className="pf-meta-on">
-                      <div className="min-w-0">
-                        <div className="pf-title">{it.title}</div>
-                        <div className="pf-sub">{it.tags.join(" • ")}</div>
+              {featured.map((it) => {
+                const theme = it.theme ?? themeFromSlug(it.slug);
+                const cover = it.cover || "/placeholder/cover.jpg";
+                return (
+                  <article key={it.slug} className={`pf-card hcard3d ${theme}`}>
+                    <div className="pf-ring" />
+                    <div className="pf-cover">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={cover} alt="" className="pf-img" />
+                      <div className="pf-spot" />
+                      <div className="pf-vignette" />
+                      <div className="pf-meta-on">
+                        <div className="min-w-0">
+                          <div className="pf-title">{it.title}</div>
+                          <div className="pf-sub">{it.tags.join(" • ")}</div>
+                        </div>
+                        <Link href={`/insights/${it.slug}`} className="pf-cta">Read</Link>
                       </div>
-                      <Link href={`/insights/${it.slug}`} className="pf-cta">
-                        Читать
-                      </Link>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
+              {!featured.length && (
+                <div className="text-zinc-400 px-2 py-6">Posts will appear after you publish them in the admin.</div>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ALL insights */}
+      {/* ALL insights — фильтр по темам + пагинация по 6 */}
       <section id="all" className="oc-section section-soft">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-6 flex items-baseline justify-between">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Все заметки</h2>
-            <div className="text-zinc-400 text-sm">Обновляем регулярно</div>
+            <h2 className="text-xl md:text-2xl font-bold text-white">All notes</h2>
+            <div className="text-zinc-400 text-sm">Filter by theme</div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {insights.map((it) => (
-              <article key={it.slug} className={`hlx-card ${it.theme ?? ""}`}>
-                <div className="hlx-fx">
-                  <div className="hlx-spot"></div>
-                </div>
-
-                <div className="rounded-xl overflow-hidden mb-3 border border-white/10">
-                  <img
-                    src={it.cover}
-                    alt=""
-                    className="w-full h-[180px] object-cover"
-                    loading="lazy"
-                  />
-                </div>
-
-                <h3 className="font-semibold leading-tight">{it.title}</h3>
-                <p className="hlx-desc">{it.excerpt}</p>
-
-                <div className="mt-3 flex flex-wrap gap-2 items-center text-sm text-zinc-400">
-                  <span className="chip">{it.date}</span>
-                  <span className="chip">{it.readTime}</span>
-                  {it.tags.slice(0, 2).map((t) => (
-                    <span key={t} className="chip">{t}</span>
-                  ))}
-                </div>
-
-                <div className="mt-4">
-                  <Link href={`/insights/${it.slug}`} className="btn-acc btn-acc-primary">
-                    Читать заметку
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
+          <InsightsBrowser
+            insights={insights.map((it) => ({
+              ...it,
+              theme: it.theme ?? themeFromSlug(it.slug),
+            }))}
+            perPage={6}
+            scrollTargetId="all"
+          />
         </div>
       </section>
     </main>
   );
-}
-
-// Для demo/SSG можно экспортировать данные:
-export function getAllInsights() {
-  return insights;
 }
