@@ -1,4 +1,4 @@
-// app/robots.ts
+﻿// app/robots.ts
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/seo';
 
@@ -12,9 +12,14 @@ export default function robots(): MetadataRoute.Robots {
           '/dashboard',
           '/login',
           '/register',
-          '/api/',          // внутренние
-          '/broadcasting/', // внутренние
-          '/projects/',     // личный кабинет
+          '/forgot-password',
+          '/reset-password',
+          '/verify-email',
+          '/email-verified',
+          '/api/',
+          '/broadcasting/',
+          '/projects/',
+          '/test-portfolio',
         ],
       },
     ],

@@ -1,10 +1,12 @@
 // app/insights/page.tsx
 import Link from "next/link";
+import type { Metadata } from 'next';
 import { fetchPosts } from "@/lib/api";
 import type { Post } from "@/types/post";
 import { themeFromSlug } from "@/lib/theme";
 import BackToHome from "@/components/ui/BackToHome";
 import InsightsBrowser from "./InsightsBrowser";
+import { alternatesFor } from '@/lib/seo';
 
 /* ========= adapter: Post(API) -> Insight ========= */
 
@@ -122,7 +124,26 @@ function toInsight(p: Post): Insight {
 
 /* ========= /meta ========= */
 
-export const metadata = { title: "Insights — OverCreate" };
+export const metadata: Metadata = {
+  title: 'Insights - OverCreate',
+  description:
+    'Insights from OverCreate studio about web design, motion, branding, product UI, and development decisions.',
+  alternates: alternatesFor('/insights'),
+  openGraph: {
+    title: 'Insights - OverCreate',
+    description:
+      'Insights from OverCreate studio about web design, motion, branding, product UI, and development decisions.',
+    url: '/insights',
+    type: 'website',
+    siteName: 'OverCreate',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Insights - OverCreate',
+    description:
+      'Insights from OverCreate studio about web design, motion, branding, product UI, and development decisions.',
+  },
+};
 
 export default async function InsightsPage() {
   const page = await fetchPosts(1, 12, { revalidate: 60 });
@@ -184,7 +205,7 @@ export default async function InsightsPage() {
                     <div className="pf-ring" />
                     <div className="pf-cover">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={cover} alt="" className="pf-img" />
+                      <img src={cover} alt={it.title} className="pf-img" />
                       <div className="pf-spot" />
                       <div className="pf-vignette" />
                       <div className="pf-meta-on">

@@ -1,6 +1,7 @@
 // src/lib/seo.ts
 export const SITE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '') || 'http://localhost:3000';
+  (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '') ||
+  (process.env.NODE_ENV === 'production' ? 'https://overcreate.co' : 'http://localhost:3000');
 
 export function absUrl(path = '/') {
   const p = path.startsWith('/') ? path : `/${path}`;

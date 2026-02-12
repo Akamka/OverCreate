@@ -39,7 +39,7 @@ export default function InsightsGrid({ items }: { items: InsightItem[] }) {
 
               <div className="rounded-xl overflow-hidden mb-3 border border-white/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cover} alt="" className="w-full h-[180px] object-cover" loading="lazy" />
+                <img src={cover} alt={it.title} className="w-full h-[180px] object-cover" loading="lazy" />
               </div>
 
               <h3 className="font-semibold leading-tight">{it.title}</h3>

@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/e2e-smoke.ps1"
   },
   "dependencies": {
     "@studio-freight/lenis": "^1.0.42",
@@ -17,7 +18,7 @@
     "howler": "^2.2.4",
     "laravel-echo": "^2.2.0",
     "lucide-react": "^0.542.0",
-    "next": "15.5.2",
+    "next": "^16.1.6",
     "pusher-js": "^8.4.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

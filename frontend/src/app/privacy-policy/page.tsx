@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
+import { alternatesFor } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — OverCreate",
+  title: 'Privacy Policy - OverCreate',
   description:
-    "Privacy and data protection policy for OverCreate. Learn how we process and protect your personal data according to GDPR.",
+    'Privacy and data protection policy for OverCreate. Learn how we process and protect your personal data according to GDPR.',
+  alternates: alternatesFor('/privacy-policy'),
+  openGraph: {
+    title: 'Privacy Policy - OverCreate',
+    description:
+      'Privacy and data protection policy for OverCreate. Learn how we process and protect your personal data according to GDPR.',
+    url: '/privacy-policy',
+    type: 'article',
+    siteName: 'OverCreate',
+  },
   robots: { index: true, follow: true },
 };
 

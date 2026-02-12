@@ -1,9 +1,14 @@
 // app/test-portfolio/page.tsx
+import type { Metadata } from 'next';
 import ServicePortfolio from '@/components/services/ServicePortfolio';
 import { mapApiToServiceItems } from '@/lib/portfolioMapping';
 
 // Делаем страницу динамической, чтобы Next не пытался её экспортировать статически
-export const dynamic = 'force-dynamic'; // либо export const revalidate = 0;
+export const dynamic = 'force-dynamic'; // internal test route
+export const metadata: Metadata = {
+  title: 'Internal Test Portfolio',
+  robots: { index: false, follow: false },
+};
 
 async function loadItems() {
   try {

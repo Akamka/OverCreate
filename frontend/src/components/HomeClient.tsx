@@ -42,11 +42,11 @@ export default function HomeClient({ items }: { items: Portfolio[] }) {
           <div className="mt-6 text-neutral-400 text-sm">
             Or email us:{" "}
 
-            <a className="">
+            <a href="tel:+48575933658" className="underline">
                 <br />+48 575 933 658 /  +380 969 901 003
             </a>
 
-            <a className="underline">
+            <a href="mailto:overcreate.studio@gmail.com" className="underline">
               <br />overcreate.studio@gmail.com
             </a>
 

@@ -1,10 +1,13 @@
-// app/insights/[slug]/page.tsx
+﻿// app/insights/[slug]/page.tsx
 import * as React from "react";
+import type { Metadata } from 'next';
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import Script from 'next/script';
 import { fetchPostBySlug } from "@/lib/api";
 import type { Post } from "@/types/post";
+import { SITE_URL, absUrl, alternatesFor, jsonLd } from '@/lib/seo';
 
 /* ========= UI type ========= */
 type Insight = {
@@ -18,7 +21,7 @@ type Insight = {
   theme?: "service-web" | "service-motion" | "service-graphic" | "service-dev" | "service-printing";
 };
 
-/* ========= helpers (без any) ========= */
+/* ========= helpers (Р±РµР· any) ========= */
 function getString(obj: unknown, keys: string[]): string | undefined {
   if (!obj || typeof obj !== "object") return undefined;
   const rec = obj as Record<string, unknown>;
@@ -32,9 +35,9 @@ function getString(obj: unknown, keys: string[]): string | undefined {
 function getDateISO(obj: unknown, keys: string[]): string | undefined {
   const s = getString(obj, keys);
   if (!s) return undefined;
-  // Берём первые 10 символов (YYYY-MM-DD), если пришёл ISO/DateTime
+  // Р‘РµСЂС‘Рј РїРµСЂРІС‹Рµ 10 СЃРёРјРІРѕР»РѕРІ (YYYY-MM-DD), РµСЃР»Рё РїСЂРёС€С‘Р» ISO/DateTime
   const iso = s.length >= 10 ? s.slice(0, 10) : s;
-  // минимальная валидация: YYYY-MM-DD
+  // РјРёРЅРёРјР°Р»СЊРЅР°СЏ РІР°Р»РёРґР°С†РёСЏ: YYYY-MM-DD
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : undefined;
 }
 
@@ -44,7 +47,7 @@ function toKeywords(value: unknown): string[] {
     return value.filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim());
   }
   if (typeof value === "string") {
-    // поддержка "a, b, c"
+    // РїРѕРґРґРµСЂР¶РєР° "a, b, c"
     return value
       .split(",")
       .map((x) => x.trim())
@@ -101,39 +104,56 @@ function toInsight(p: Post): Insight {
   };
 }
 
+function toAbsoluteUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : absUrl(url);
+}
+
 /* ========= dynamic SEO ========= */
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const post = await fetchPostBySlug(params.slug, { revalidate: 300 });
-  if (!post) return { title: "Insight — OverCreate" };
+  if (!post) {
+    return {
+      title: 'Insight - OverCreate',
+      robots: { index: false, follow: false },
+    };
+  }
 
   const title =
     getString(post, ["meta_title", "metaTitle"])?.trim() ||
-    `${getString(post, ["title"]) ?? "Insight"} — OverCreate`;
+    `${getString(post, ["title"]) ?? "Insight"} - OverCreate`;
 
   const description =
     getString(post, ["meta_description", "metaDescription"])?.trim() ||
     getString(post, ["excerpt"])?.trim() ||
     "An OverCreate studio note";
 
-  const cover = getString(post, ["cover_url", "coverUrl", "cover"]);
+  const coverRaw = getString(post, ["cover_url", "coverUrl", "cover"]);
+  const cover = coverRaw ? toAbsoluteUrl(coverRaw) : undefined;
+  const path = `/insights/${params.slug}`;
+  const publishedAt = getString(post, ["published_at", "publishedAt", "created_at", "createdAt"]);
 
   return {
     title,
     description,
+    alternates: alternatesFor(path),
+    robots: { index: true, follow: true },
     openGraph: {
       title,
       description,
+      url: path,
+      type: 'article',
+      siteName: 'OverCreate',
+      publishedTime: publishedAt ?? undefined,
       images: cover ? [{ url: cover }] : undefined,
     },
     twitter: {
-      card: "summary_large_image" as const,
+      card: 'summary_large_image',
       title,
       description,
       images: cover ? [cover] : undefined,
     },
   };
 }
-
 export const dynamicParams = true;
 export async function generateStaticParams() { return []; }
 
@@ -146,9 +166,41 @@ export default async function InsightPage({ params }: Props) {
   if (!apiPost) return notFound();
 
   const post = toInsight(apiPost);
+  const postPath = `/insights/${params.slug}`;
+  const publishedAt = getString(apiPost, ["published_at", "publishedAt", "created_at", "createdAt"]);
+  const updatedAt = getString(apiPost, ["updated_at", "updatedAt"]) ?? publishedAt;
+  const cover = post.cover ? toAbsoluteUrl(post.cover) : undefined;
+  const ldPost = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.excerpt || undefined,
+    image: cover ? [cover] : undefined,
+    datePublished: publishedAt || undefined,
+    dateModified: updatedAt || undefined,
+    author: {
+      '@type': 'Organization',
+      name: 'OverCreate',
+      url: SITE_URL,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'OverCreate',
+      logo: {
+        '@type': 'ImageObject',
+        url: absUrl('/transp-logo.png'),
+      },
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': absUrl(postPath),
+    },
+    keywords: post.tags.length ? post.tags.join(', ') : undefined,
+  };
 
   return (
     <main>
+      <Script id={`ld-post-${post.slug}`} type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ldPost)} />
       {/* Post HERO */}
       <header className={`oc-section section-soft ${post.theme ?? ""}`}>
         <div className="mx-auto max-w-6xl px-4">
@@ -201,7 +253,7 @@ export default async function InsightPage({ params }: Props) {
                     <div className="relative w-full h-[260px] md:h-[320px]">
                       <Image
                         src={post.cover}
-                        alt=""
+                        alt={post.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover"
@@ -228,7 +280,7 @@ export default async function InsightPage({ params }: Props) {
       {/* Article content (from admin) */}
       <article className="oc-section section-soft">
         <div className="mx-auto max-w-3xl px-4 insight-prose prose prose-invert prose-zinc">
-          {/* html из админки */}
+          {/* html РёР· Р°РґРјРёРЅРєРё */}
           <div
             dangerouslySetInnerHTML={{
               __html: (apiPost as unknown as { body?: string }).body ?? "",
@@ -251,7 +303,7 @@ export default async function InsightPage({ params }: Props) {
                     {/* text */}
                     <div className="grow min-w-0">
                       <h4 className="cta-title text-xl md:text-2xl font-extrabold">
-                        {getString(apiPost, ["cta_text", "ctaText"]) ?? "Need an interface that sells? Let’s talk."}
+                        {getString(apiPost, ["cta_text", "ctaText"]) ?? "Need an interface that sells? LetвЂ™s talk."}
                       </h4>
                       <p className="cta-desc mt-2">
                         We can quickly prototype, validate the hypothesis, and scale it into a design system.
