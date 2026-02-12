@@ -5,8 +5,19 @@ import { SERVICES, type ServiceSlug } from '@/lib/services.config';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export default function OGService({ params }: { params: { slug: ServiceSlug } }) {
-  const cfg = SERVICES[params.slug];
+type RouteParams = { slug: string };
+
+async function readSlug(params: RouteParams | Promise<RouteParams>): Promise<ServiceSlug | null> {
+  const resolved = await params;
+  const normalized = (resolved?.slug ?? '').toLowerCase().trim();
+  if (!normalized) return null;
+  if (normalized in SERVICES) return normalized as ServiceSlug;
+  return null;
+}
+
+export default async function OGService({ params }: { params: RouteParams | Promise<RouteParams> }) {
+  const slug = await readSlug(params);
+  const cfg = slug ? SERVICES[slug] : undefined;
   const c1 = `rgb(${cfg?.acc1?.join(' ') || '59 130 246'})`;
   const c2 = `rgb(${cfg?.acc2?.join(' ') || '168 85 247'})`;
   const title = cfg?.title || 'Service';

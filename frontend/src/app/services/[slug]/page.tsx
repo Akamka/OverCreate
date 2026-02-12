@@ -31,14 +31,25 @@ export function generateStaticParams(): Array<{ slug: ServiceSlug }> {
   return (Object.keys(SERVICES) as ServiceSlug[]).map((slug) => ({ slug }));
 }
 
-type PageProps = { params: { slug: ServiceSlug } };
+type RouteParams = { slug: string };
+type PageProps = { params: RouteParams | Promise<RouteParams> };
 
-export function generateMetadata({ params }: PageProps): Metadata {
-  const cfg = SERVICES[params.slug];
+async function readSlug(params: PageProps['params']): Promise<ServiceSlug | null> {
+  const resolved = await params;
+  const normalized = (resolved?.slug ?? '').toLowerCase().trim();
+  if (!normalized) return null;
+  if (normalized in SERVICES) return normalized as ServiceSlug;
+  return null;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const slug = await readSlug(params);
+  if (!slug) return {};
+  const cfg = SERVICES[slug];
   if (!cfg) return {};
   const title = `${cfg.title} — OverCreate Services`;
   const description = cfg.desc;
-  const path = `/services/${params.slug}`;
+  const path = `/services/${slug}`;
 
   return {
     title,
@@ -94,8 +105,10 @@ function pickCoverSrc(p: PortfolioWithMedia): string | undefined {
 /* ============================== page ================================ */
 
 export default async function ServicePage({ params }: PageProps) {
-  const cfg: ServiceConfig | undefined = SERVICES[params.slug];
+  const slug = await readSlug(params);
+  const cfg: ServiceConfig | undefined = slug ? SERVICES[slug] : undefined;
   if (!cfg) notFound();
+  const serviceSlug = slug as ServiceSlug;
 
   const vars: StyleWithVars = {
     '--acc1': cfg.acc1.join(' '),
@@ -107,7 +120,7 @@ export default async function ServicePage({ params }: PageProps) {
   try {
     // Короткий revalidate держим и на fetch-уровне (если в helper поддерживается),
     // чтобы новые работы попадали без долгой задержки.
-    const { data } = await fetchPortfolioByService(params.slug, 1, 9, { revalidate: 30 });
+    const { data } = await fetchPortfolioByService(serviceSlug, 1, 9, { revalidate: 30 });
     apiItems = (data ?? []) as PortfolioWithMedia[];
   } catch {
     apiItems = [];
@@ -130,14 +143,14 @@ export default async function ServicePage({ params }: PageProps) {
     description: cfg.desc,
     provider: { '@type': 'Organization', name: 'OverCreate', url: SITE_URL },
     areaServed: ['US', 'EU'],
-    url: `${SITE_URL}/services/${params.slug}`,
+    url: `${SITE_URL}/services/${slug}`,
     offers:
       cfg.pricing?.map((p) => ({
         '@type': 'Offer',
         name: p.name,
         price: p.price.replace(/[^\d.]/g, '') || undefined,
         priceCurrency: 'USD',
-        url: `${SITE_URL}/services/${params.slug}#pricing`,
+        url: `${SITE_URL}/services/${slug}#pricing`,
         availability: 'http://schema.org/InStock',
       })) ?? undefined,
   };
@@ -156,7 +169,7 @@ export default async function ServicePage({ params }: PageProps) {
       : null;
 
   return (
-    <main key={`service-${params.slug}`} className="relative" style={vars}>
+    <main key={`service-${slug}`} className="relative" style={vars}>
       {/* JSON-LD */}
       <Script id="ld-service" type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ldService)} />
       {ldFAQ ? (
@@ -166,8 +179,8 @@ export default async function ServicePage({ params }: PageProps) {
       <BackToHome />
 
       <ServiceHero
-        key={`hero-${params.slug}-${cfg.acc1.join('_')}-${cfg.acc2.join('_')}`}
-        slug={params.slug}
+        key={`hero-${slug}-${cfg.acc1.join('_')}-${cfg.acc2.join('_')}`}
+        slug={serviceSlug}
         title={cfg.title}
         desc={cfg.desc}
         acc1={cfg.acc1}
@@ -212,7 +225,7 @@ export default async function ServicePage({ params }: PageProps) {
         title={cfg.sectionTitles?.faqTitle ?? 'Frequently asked questions'}
       />
 
-      <ServiceCTA service={params.slug} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
+      <ServiceCTA service={serviceSlug} accentFrom={cfg.acc1} accentTo={cfg.acc2} />
     </main>
   );
 }
