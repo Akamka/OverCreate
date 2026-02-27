@@ -108,9 +108,26 @@ function toAbsoluteUrl(url: string): string {
   return /^https?:\/\//i.test(url) ? url : absUrl(url);
 }
 
+type RouteParams = { slug: string };
+type PageProps = { params: RouteParams | Promise<RouteParams> };
+
+async function readSlug(params: PageProps["params"]): Promise<string | null> {
+  const resolved = await params;
+  const normalized = (resolved?.slug ?? "").trim();
+  return normalized || null;
+}
+
 /* ========= dynamic SEO ========= */
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = await fetchPostBySlug(params.slug, { revalidate: 300 });
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const slug = await readSlug(params);
+  if (!slug) {
+    return {
+      title: "Insight - OverCreate",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const post = await fetchPostBySlug(slug, { revalidate: 300 });
   if (!post) {
     return {
       title: 'Insight - OverCreate',
@@ -129,7 +146,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
   const coverRaw = getString(post, ["cover_url", "coverUrl", "cover"]);
   const cover = coverRaw ? toAbsoluteUrl(coverRaw) : undefined;
-  const path = `/insights/${params.slug}`;
+  const path = `/insights/${slug}`;
   const publishedAt = getString(post, ["published_at", "publishedAt", "created_at", "createdAt"]);
 
   return {
@@ -158,15 +175,17 @@ export const dynamicParams = true;
 export async function generateStaticParams() { return []; }
 
 /* ========= page ========= */
-type Props = { params: { slug: string } };
 type CSSVars = React.CSSProperties & { ["--reveal-delay"]?: string };
 
-export default async function InsightPage({ params }: Props) {
-  const apiPost = await fetchPostBySlug(params.slug, { revalidate: 300 });
+export default async function InsightPage({ params }: PageProps) {
+  const slug = await readSlug(params);
+  if (!slug) return notFound();
+
+  const apiPost = await fetchPostBySlug(slug, { revalidate: 300 });
   if (!apiPost) return notFound();
 
   const post = toInsight(apiPost);
-  const postPath = `/insights/${params.slug}`;
+  const postPath = `/insights/${slug}`;
   const publishedAt = getString(apiPost, ["published_at", "publishedAt", "created_at", "createdAt"]);
   const updatedAt = getString(apiPost, ["updated_at", "updatedAt"]) ?? publishedAt;
   const cover = post.cover ? toAbsoluteUrl(post.cover) : undefined;

@@ -26,7 +26,7 @@ function authHeaders(isWrite = false) {
 export async function getAllInsights(): Promise<Insight[]> {
   const res = await fetch(`${BASE}/insights`, {
     method: "GET",
-    headers: authHeaders(false),
+    headers: authHeaders(),
     // кэшируем по тегу — чтобы потом админка могла дернуть revalidateTag("insights")
     next: { tags: ["insights"] },
   });
@@ -38,7 +38,7 @@ export async function getAllInsights(): Promise<Insight[]> {
 export async function getInsight(slug: string): Promise<Insight | null> {
   const res = await fetch(`${BASE}/insights/${encodeURIComponent(slug)}`, {
     method: "GET",
-    headers: authHeaders(false),
+    headers: authHeaders(),
     next: { tags: ["insights", `insight:${slug}`] },
   });
   if (res.status === 404) return null;
